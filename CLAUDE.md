@@ -151,10 +151,20 @@ batch   ──┘         │
 
 ---
 
+## 개발 규칙 (코딩 시 반드시 준수)
+- **Enum + 한글 설명** 패턴으로 모든 상태값 관리 (`private final String description`)
+- **1차(온라인)** 와 **2차(출장)** 를 코드/주석에서 항상 명확히 구분
+- 재고 HOLD 시 **동시성 제어** 필수 (중복 HOLD / 초과 판매 방지)
+
+---
+
 ## 현재 진행 상태
 - [x] 프로젝트 방향 확정
 - [x] GitHub 레포 생성 (stylink, public)
 - [x] 로컬 클론 완료 (C:\dev\stylink)
 - [x] CLAUDE.md 생성 및 GitHub 업로드
-- [ ] docs 폴더 구조 생성
-- [ ] Phase 1 문서 작성 시작 ← **다음 할 일**
+- [x] docs 폴더 구조 생성
+- [x] 상태 다이어그램 완료
+- [ ] 도메인 모델 정의서 ← **다음 할 일**
+- [ ] ERD
+- [ ] JPA Entity 설계서
