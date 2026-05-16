@@ -32,7 +32,7 @@
 - 물류센터는 단일 센터로 가정
 - 결제이탈(ABANDONED) 상태 미사용 → 결제실패(FAILED)로만 처리
 - **SHIPPED** = 1차 온라인 주문의 배송 시작 (Order/Delivery 상태)
-- **TRANSFER** = 2차 출장 서비스의 코디네이터 재고 이동 (Inventory 상태)
+- **TRANSFER** = 2차 출장 서비스의 스타일리스트 재고 이동 (Inventory 상태)
 
 ---
 
@@ -60,7 +60,7 @@ AVAILABLE ───────────────────────�
 |------|--------|------|
 | `AVAILABLE` | 판매가능 | 주문/예약 가능한 정상 재고 |
 | `HOLD` | 선점됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
-| `TRANSFER` | 이동중 | 코디네이터 출장을 위해 이동 중인 재고 **(2차 전용)** |
+| `TRANSFER` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
 | `SOLD` | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
 
 **정책**
@@ -112,7 +112,7 @@ FAILED             CANCELLED                               (취소 불가)      
 > 2차 O2O 출장 스타일링 서비스
 
 ```
-PENDING ──확정──► CONFIRMED ──코디배정──► ASSIGNED ──출장시작──► IN_PROGRESS ──완료──► COMPLETED
+PENDING ──확정──► CONFIRMED ──스타일리스트배정──► ASSIGNED ──출장시작──► IN_PROGRESS ──완료──► COMPLETED
    │                  │                     │                        │
    │ 취소              │ 취소                 │ 취소                    │ 취소불가
    ▼                  ▼                     ▼                        ▼
@@ -123,16 +123,16 @@ CANCELLED          CANCELLED            CANCELLED              (취소 불가)
 |------|--------|------|
 | `PENDING` | 예약신청 | 고객 예약 신청 완료, 확정 대기 |
 | `CONFIRMED` | 예약확정 | 예약 확정, 재고 HOLD 처리 |
-| `ASSIGNED` | 코디배정완료 | 코디네이터 배정 완료, 재고 TRANSFER |
-| `IN_PROGRESS` | 진행중 | 코디네이터 출장 중 → 이후 취소 불가 |
-| `COMPLETED` | 완료 | 코디 세션 종료 (개별 재고별 판매/미판매 처리) |
+| `ASSIGNED` | 스타일리스트배정완료 | 스타일리스트 배정 완료, 재고 TRANSFER |
+| `IN_PROGRESS` | 진행중 | 스타일리스트 출장 중 → 이후 취소 불가 |
+| `COMPLETED` | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
 | `CANCELLED` | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
 
 **정책**
 - CONFIRMED 시점 → 재고 HOLD 처리
 - ASSIGNED 시점 → 재고 TRANSFER 처리
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
-- COMPLETED = 코디 세션 종료를 의미 (모든 상품 판매 완료가 아님)
+- COMPLETED = 스타일링 세션 종료를 의미 (모든 상품 판매 완료가 아님)
   - 구매 확정 상품 → 현장 주문 생성 → 재고 SOLD
   - 미구매 상품 → 재고 AVAILABLE 복구
 - 취소 시 재고 복구
