@@ -361,14 +361,15 @@ public class ProductHistory extends BaseEntity {
     @Column(nullable = false)
     private LocalDate saleEndDate;
 
-    @Column(nullable = false, length = 1)
-    private String isCurrent;               // Y / N
+    @Column(nullable = false)
+    private boolean isCurrent;              // true = 현재, false = 이력
 }
 ```
 
 **SCD Type 2 패턴:**
-- 정보 변경 시 → 기존 레코드 `isCurrent = N`, `saleEndDate` 업데이트 + 새 레코드 생성
-- 현재 유효 레코드는 항상 `isCurrent = Y` 인 레코드 1개
+- 정보 변경 시 → 기존 레코드 `isCurrent = false`, `saleEndDate` 업데이트 + 새 레코드 생성
+- 현재 유효 레코드는 항상 `isCurrent = true` 인 레코드 1개
+- 유일성 보장: DB 제약 대신 `@Transactional` 애플리케이션 레벨에서 보장
 
 ---
 

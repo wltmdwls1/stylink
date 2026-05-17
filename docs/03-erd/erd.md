@@ -136,7 +136,7 @@ Product 1 ─── N OrderItem
 | image_url | VARCHAR(500) | | 대표 이미지 (S3 URL) |
 | sale_start_date | DATE | NOT NULL | 판매 시작일 |
 | sale_end_date | DATE | NOT NULL | 판매 종료일 (현재: 9999-12-31) |
-| is_current | CHAR(1) | NOT NULL, DEFAULT 'Y' | 현재 유효 여부 (Y/N) |
+| is_current | TINYINT(1) | NOT NULL, DEFAULT 1 | 현재 유효 여부 (1=현재, 0=이력) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
