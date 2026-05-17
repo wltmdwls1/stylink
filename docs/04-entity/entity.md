@@ -268,9 +268,31 @@ public class Member extends BaseEntity {
 
     @Column(nullable = false)
     private Long totalPurchaseAmount = 0L;
+}
+```
 
-    // 스타일링 스펙 정보 — 선택 입력 (nullable)
-    // 2차 예약 신청 시 Service 레이어에서 필수 여부 체크
+**특이사항:**
+- `password` → BCrypt 해시값 저장
+- `phone` → AES256 암호화 저장, 응답 시 마스킹 처리 (010-****-5678)
+- 스타일링 스펙 정보(height/weight 등)는 `MemberProfile`로 분리 — 2차 서비스에서만 사용
+- Wishlist, Cart, Order와의 연관관계는 각 테이블에서 단방향으로 참조
+
+---
+
+### MemberProfile
+
+```java
+@Entity
+@Table(name = "member_profile")
+public class MemberProfile extends BaseEntity {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false, unique = true)
+    private Member member;
+
     @Column
     private Integer height;                  // 키 (cm)
 
@@ -282,15 +304,13 @@ public class Member extends BaseEntity {
 
     @Column(length = 10)
     private String bottomSize;               // 하의 사이즈
-
 }
 ```
 
 **특이사항:**
-- `password` → BCrypt 해시값 저장
-- `phone` → AES256 암호화 저장, 응답 시 마스킹 처리 (010-****-5678)
-- 스펙 정보(height ~ preferredStyle) → 회원가입 시 선택, 2차 예약 신청 시 ReservationService에서 필수 체크
-- Wishlist, Cart, Order와의 연관관계는 각 테이블에서 단방향으로 참조
+- 2차 O2O 출장 스타일링에서만 필요한 스타일링 스펙 정보
+- 회원가입 시 빈 레코드로 생성, 이후 선택 입력
+- 2차 예약 신청 시 ReservationService에서 필수 여부 체크
 
 ---
 
@@ -768,6 +788,7 @@ public class InboundApiLog extends BaseLogEntity {
 | Entity | 연관관계 | 대상 | 방향 |
 |--------|---------|------|------|
 | Category | @ManyToOne | Category (self) | 단방향 |
+| MemberProfile | @OneToOne | Member | 단방향 |
 | Product | @ManyToOne | Category | 단방향 |
 | ProductHistory | @ManyToOne | Product | 단방향 |
 | Wishlist | @ManyToOne | Member, Product | 단방향 |

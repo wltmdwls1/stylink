@@ -121,6 +121,24 @@ ProductHistory는 전부 변경 전 값(과거)이므로 isCurrent가 의미 없
 
 ---
 
+### Member + MemberProfile 분리
+
+**설계:**
+- Member: 인증/계정/비즈니스 정보 (email, password, grade, totalPurchaseAmount 등)
+- MemberProfile: 스타일링 스펙 정보 (height, weight, topSize, bottomSize)
+
+**근거:**
+Member는 로그인, 주문, 등급 관리 등 전반에 걸쳐 항상 함께 조회되는 데이터.
+스타일링 스펙 정보는 2차 O2O 출장 서비스에서만 필요하고, 성격이 명확히 다름.
+같은 Member 테이블에 두면 1차 서비스에서도 불필요한 컬럼이 항상 로드됨.
+"성격이 다른 데이터만 최소 분리"하는 원칙으로 MemberProfile을 별도 테이블로 분리.
+
+**모놀리식에서 나머지를 합친 이유:**
+grade, totalPurchaseAmount는 주문할 때마다 같이 쓰이는 데이터라 JOIN 없이 바로 조회하는 게 유리.
+MSA 전환 시에는 Auth 서비스 / Customer 서비스 / Profile 서비스로 자연스럽게 분리 가능.
+
+---
+
 ### 순수 JPA 선택
 
 MyBatis 실무 경험은 있으나, 포트폴리오에서 JPA 설계/활용 능숙도를 증명하기 위해 순수 JPA로 구성.

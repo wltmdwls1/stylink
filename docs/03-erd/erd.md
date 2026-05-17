@@ -28,6 +28,7 @@
 
 ### 관계 요약
 ```
+Member 1 ─── 1 MemberProfile
 Member 1 ─── N Wishlist
 Member 1 ─── 1 Cart ─── N CartItem
 Member 1 ─── N Order ─── N OrderItem
@@ -80,6 +81,23 @@ Product 1 ─── N OrderItem
 | auth_status | VARCHAR(20) | NOT NULL | 인증상태 (UNVERIFIED / VERIFIED) |
 | grade | VARCHAR(20) | NOT NULL | 등급 (NORMAL / VIP) |
 | total_purchase_amount | BIGINT | DEFAULT 0 | 누적 구매금액 (VIP 등급 기준) |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+| created_by | BIGINT | | 생성자 ID |
+| created_by_type | VARCHAR(20) | | 생성자 유형 (MEMBER / SYSTEM) |
+| updated_by | BIGINT | | 수정자 ID |
+| updated_by_type | VARCHAR(20) | | 수정자 유형 |
+
+> 스타일링 스펙 정보(height/weight 등)는 member_profile 테이블로 분리
+
+---
+
+### member_profile (고객 스타일링 프로필)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 프로필 ID |
+| member_id | BIGINT | FK → member.id, UNIQUE, NOT NULL | 고객 ID (1:1) |
 | height | INT | nullable | 키 (cm) |
 | weight | INT | nullable | 몸무게 (kg) |
 | top_size | VARCHAR(10) | nullable | 상의 사이즈 (S/M/L/XL 등) |
@@ -91,8 +109,9 @@ Product 1 ─── N OrderItem
 | updated_by | BIGINT | | 수정자 ID |
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
-> 스펙 정보(height ~ preferred_style): 회원가입 시 선택 입력 (nullable)
-> 2차 예약 신청 시 Service 레이어에서 필수 여부 체크
+> 2차 O2O 출장 스타일링에서만 사용하는 스타일링 스펙 정보
+> 회원가입 시 선택 입력 (nullable) — 2차 예약 신청 시 ReservationService에서 필수 여부 체크
+> Member와 1:1 관계 — 회원가입 시 빈 레코드로 생성
 
 ---
 
