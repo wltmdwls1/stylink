@@ -128,8 +128,8 @@ public enum AdminRole {
 ```java
 public enum InventoryStatus {
     AVAILABLE("판매가능"),
-    HOLD("선점됨"),
-    TRANSFER("이동중"),     // 2차 전용
+    RESERVED("예약됨"),
+    IN_TRANSIT("이동중"),   // 2차 전용
     SOLD("판매완료");
 }
 ```
@@ -334,30 +334,6 @@ public class Product extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
-}
-```
-
-**특이사항:**
-- 변경 가능한 정보(name, price 등)는 모두 `ProductHistory`에서 관리
-- 현재 유효 정보 조회: `ProductHistoryRepository.findByProductAndIsCurrent(product, "Y")`
-
----
-
-### ProductHistory
-
-```java
-@Entity
-@Table(name = "product_history",
-    indexes = @Index(name = "idx_product_history_current",
-                     columnList = "product_id, is_current"))
-public class ProductHistory extends BaseEntity {
-
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -370,22 +346,49 @@ public class ProductHistory extends BaseEntity {
 
     @Column(length = 500)
     private String imageUrl;
-
-    @Column(nullable = false)
-    private LocalDate saleStartDate;
-
-    @Column(nullable = false)
-    private LocalDate saleEndDate;
-
-    @Column(nullable = false)
-    private boolean isCurrent;              // true = 현재, false = 이력
 }
 ```
 
-**SCD Type 2 패턴:**
-- 정보 변경 시 → 기존 레코드 `isCurrent = false`, `saleEndDate` 업데이트 + 새 레코드 생성
-- 현재 유효 레코드는 항상 `isCurrent = true` 인 레코드 1개
-- 유일성 보장: DB 제약 대신 `@Transactional` 애플리케이션 레벨에서 보장
+**특이사항:**
+- 현재 상품 정보(name, price 등)를 직접 보유
+- 변경 시 변경 전 값을 `ProductHistory`에 INSERT 후 Product UPDATE
+- 현재 상품 조회: `productRepository.findById(id)` — 필터 없이 바로 조회
+
+---
+
+### ProductHistory
+
+```java
+@Entity
+@Table(name = "product_history")
+public class ProductHistory extends BaseLogEntity {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
+
+    @Column(nullable = false, length = 100)
+    private String name;                    // 변경 전 상품명
+
+    @Column(nullable = false)
+    private Long price;                     // 변경 전 가격
+
+    @Column(columnDefinition = "TEXT")
+    private String description;             // 변경 전 상품 설명
+
+    @Column(length = 500)
+    private String imageUrl;                // 변경 전 이미지
+}
+```
+
+**append-only 이력 로그:**
+- 상품 정보(name, price 등) 변경 시 변경 전 값을 INSERT
+- 현재 값은 Product에 있으므로 isCurrent 불필요
+- `BaseLogEntity` 적용 — created_at, created_by, created_by_type만 존재
+- 용도: 관리자 분쟁 해결 — "언제 가격이 얼마였는가" 운영 기준 데이터
 
 ---
 
@@ -517,10 +520,6 @@ public class OrderItem extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_history_id", nullable = false)
-    private ProductHistory productHistory;
-
     @Column(nullable = false, length = 100)
     private String productName;            // 주문 시점 스냅샷
 
@@ -533,8 +532,8 @@ public class OrderItem extends BaseEntity {
 ```
 
 **특이사항:**
-- `productName`, `price` → 주문 당시 스냅샷 (상품 정보 변경돼도 유지)
-- `productHistory` → 주문 당시 `isCurrent = Y` 레코드 참조
+- `productName`, `price` → 주문 당시 스냅샷 (상품 정보 변경돼도 유지, 고객 기준 진실)
+- 주문 시점에 `Product.name`, `Product.price`를 복사해서 저장
 
 ---
 
@@ -775,7 +774,7 @@ public class InboundApiLog extends BaseLogEntity {
 | Cart | @OneToOne | Member | 단방향 |
 | CartItem | @ManyToOne | Cart, Product | 단방향 |
 | Order | @ManyToOne | Member | 단방향 |
-| OrderItem | @ManyToOne | Order, Product, ProductHistory | 단방향 |
+| OrderItem | @ManyToOne | Order, Product | 단방향 |
 | OrderHistory | @ManyToOne | Order | 단방향 |
 | Inventory | @OneToOne | Product | 단방향 |
 | InventoryLog | @ManyToOne | Inventory, Order | 단방향 |
@@ -791,6 +790,6 @@ public class InboundApiLog extends BaseLogEntity {
 | `order` 테이블명 | SQL 예약어 → `@Table(name = "orders")` 필수 |
 | `@Version` | Inventory 전용 — 임의 수정 절대 금지 |
 | 전화번호 암호화 | Service에서 AES256 암호화 후 저장, 조회 시 복호화 + 마스킹 |
-| ProductHistory | `isCurrent = Y` 레코드가 항상 유일하게 유지되어야 함 |
+| ProductHistory | append-only 이력 로그 — INSERT만 허용, 현재 값은 Product에서 조회 |
 | ALL LAZY | @OneToOne도 LAZY 적용 — 프록시 객체 주의 |
 | Enum 저장 | `@Enumerated(EnumType.STRING)` — ORDINAL 절대 사용 금지 |

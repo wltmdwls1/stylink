@@ -23,10 +23,10 @@
 
 | 항목 | 근거 |
 |------|------|
-| 재고 낙관적 락 (@Version) | 동시 주문 시 중복 HOLD 방지 — 실무 핵심 패턴 |
+| 재고 낙관적 락 (@Version) | 동시 주문 시 중복 RESERVED 방지 — 실무 핵심 패턴 |
 | AES256 + BCrypt 암호화 | 개인정보보호법 기준 — 전화번호(양방향)/비밀번호(단방향) 구분 |
 | SCD Type 2 (ProductHistory) | 상품 정보 변경 이력 관리 — 실무 데이터 이력 패턴 |
-| 상태 기반 재고 관리 | AVAILABLE/HOLD/TRANSFER/SOLD — 단순 수량보다 명확한 흐름 |
+| 상태 기반 재고 관리 | AVAILABLE/RESERVED/IN_TRANSIT/SOLD — 단순 수량보다 명확한 흐름 |
 | Audit 필드 분리 | BaseEntity/BaseLogEntity — append-only 의도 명확화 |
 | API 로그 분리 | OutboundApiLog/InboundApiLog — 관심사 분리 |
 | Enum + 한글 설명 | 타입 안정성 + 의미 명확화 |
@@ -73,7 +73,7 @@ DB 컬럼을 nullable로 두고 비즈니스 규칙은 Service 레이어에서 �
 
 ---
 
-### 재고 상태 기반 관리 (AVAILABLE/HOLD/TRANSFER/SOLD)
+### 재고 상태 기반 관리 (AVAILABLE/RESERVED/IN_TRANSIT/SOLD)
 
 **실무에서는:**
 수량 감소 방식도 많이 사용.
@@ -83,24 +83,41 @@ DB 컬럼을 nullable로 두고 비즈니스 규칙은 Service 레이어에서 �
 
 **근거:**
 단순 수량 감소는 동시 주문 시 초과 판매 위험이 있고 재고 상태 추적이 어렵다.
-HOLD로 선점 → 결제 완료 시 SOLD 전환으로 흐름이 명확하다.
-2차 출장 서비스의 물리적 이동을 TRANSFER로 자연스럽게 표현할 수 있다.
+RESERVED로 선점 → 결제 완료 시 SOLD 전환으로 흐름이 명확하다.
+2차 출장 서비스의 물리적 이동을 IN_TRANSIT으로 자연스럽게 표현할 수 있다.
+
+**상태명 네이밍 근거:**
+- HOLD 대신 RESERVED: "선점됨"보다 "예약됨"이 비즈니스 의도를 더 명확히 표현
+- TRANSFER 대신 IN_TRANSIT: 물리적 이동 중임을 더 직관적으로 표현
 
 ---
 
-### TRANSFER가 2차 전용인 이유
+### IN_TRANSIT이 2차 전용인 이유
 
-1차는 Delivery 테이블이 배송 상태를 담당 → 재고는 HOLD→SOLD로 단순화.
-2차는 스타일리스트가 상품을 물리적으로 들고 이동 → Inventory에서 TRANSFER로 추적.
-TRANSFER 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구 처리.
+1차는 Delivery 테이블이 배송 상태를 담당 → 재고는 RESERVED→SOLD로 단순화.
+2차는 스타일리스트가 상품을 물리적으로 들고 이동 → Inventory에서 IN_TRANSIT으로 추적.
+IN_TRANSIT 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구 처리.
 
 ---
 
-### ProductHistory SCD Type 2
+### ProductHistory — append-only 이력 로그
 
-상품 가격/이름 변경 시 기존 주문 내역 오염 방지.
-기존 레코드 종료(isCurrent=false) + 새 레코드 생성 패턴.
-isCurrent 유일성은 MySQL 부분 인덱스 미지원으로 @Transactional 애플리케이션 레벨 보장.
+**설계:**
+- Product: 현재 상품 정보(name, price 등) 직접 보유
+- ProductHistory: 변경 전 값을 INSERT하는 append-only 이력 로그
+
+**변경 시 흐름:**
+1. 현재 Product.name/price → ProductHistory에 INSERT (변경 전 값 보존)
+2. Product UPDATE (새 값으로)
+
+**ProductHistory 존재 이유:**
+OrderItem은 고객이 결제한 시점의 진실(고객 기준).
+ProductHistory는 상품 가격이 실제로 언제 변경됐는지의 운영 기준.
+고객 분쟁 시("이벤트 기간에 10,000원이었는데 왜 나는 12,000원이냐") 두 데이터를 교차 확인해 진실을 가릴 수 있음.
+
+**isCurrent 제거 근거:**
+ProductHistory는 전부 변경 전 값(과거)이므로 isCurrent가 의미 없음.
+현재 값은 Product에 있으므로 필터 없이 직접 조회 가능.
 
 ---
 
@@ -109,6 +126,28 @@ isCurrent 유일성은 MySQL 부분 인덱스 미지원으로 @Transactional 애
 MyBatis 실무 경험은 있으나, 포트폴리오에서 JPA 설계/활용 능숙도를 증명하기 위해 순수 JPA로 구성.
 복잡한 조회는 JPQL fetch join으로 N+1 명시적 제어.
 실무에서 MyBatis와 혼용하는 경우가 많지만, 포트폴리오에서 혼용하면 JPA를 제대로 못 쓴다는 인상을 줄 수 있다.
+
+---
+
+### 서비스 아키텍처 — OrderService 오케스트레이터 패턴
+
+**설계:**
+OrderService가 주문 흐름 전체를 제어하는 오케스트레이터 역할.
+InventoryService, PaymentService, DeliveryService는 각자의 책임만 처리하고 OrderService가 흐름을 조율.
+
+**흐름:**
+```
+OrderService
+  → InventoryService.hold()       // 재고 RESERVED
+  → PaymentService.pay()          // 결제
+  → DeliveryService.prepare()     // 배송 준비
+  → OrderHistory 기록
+```
+
+**근거:**
+주문 흐름(재고 → 결제 → 배송)의 전체 맥락이 OrderService에 집중되어 있어 흐름 파악이 용이.
+실무 모놀리식 구조에서는 오케스트레이터 패턴이 일반적.
+MSA 전환 시 오케스트레이터를 별도 서비스로 분리하거나 Saga 패턴으로 확장 가능.
 
 ---
 

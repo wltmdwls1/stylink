@@ -32,7 +32,7 @@
 - 물류센터는 단일 센터로 가정
 - 결제이탈(ABANDONED) 상태 미사용 → 결제실패(FAILED)로만 처리
 - **SHIPPED** = 1차 온라인 주문의 배송 시작 (Order/Delivery 상태)
-- **TRANSFER** = 2차 출장 서비스의 스타일리스트 재고 이동 (Inventory 상태)
+- **IN_TRANSIT** = 2차 출장 서비스의 스타일리스트 재고 이동 (Inventory 상태)
 
 ---
 
@@ -42,12 +42,12 @@
 
 ```
                     주문/예약 발생
-AVAILABLE ──────────────────────────────────► HOLD
+AVAILABLE ──────────────────────────────────► RESERVED
     ▲                                           │
     │  취소 / 만료 / 결제실패                     │ 코디 출장 이동 (2차)
     │◄───────────────────────────────────────   │
     │                                           ▼
-    │                                       TRANSFER
+    │                                       IN_TRANSIT
     │                                           │
     │  예약 취소 (이동 후)                        │ 현장 판매 완료 / 배송 완료
     │◄───────────────────────────────────────   │
@@ -59,13 +59,13 @@ AVAILABLE ───────────────────────�
 | 상태 | 한글명 | 설명 |
 |------|--------|------|
 | `AVAILABLE` | 판매가능 | 주문/예약 가능한 정상 재고 |
-| `HOLD` | 선점됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
-| `TRANSFER` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
+| `RESERVED` | 예약됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
+| `IN_TRANSIT` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
 | `SOLD` | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
 
 **정책**
-- HOLD 상태 일정 시간 초과 시 → 자동으로 AVAILABLE 복구 (배치 처리)
-- TRANSFER 중 예약 취소 시 → 이동된 위치 기준으로 AVAILABLE 복구
+- RESERVED 상태 일정 시간 초과 시 → 자동으로 AVAILABLE 복구 (배치 처리)
+- IN_TRANSIT 중 예약 취소 시 → 이동된 위치 기준으로 AVAILABLE 복구
 - 동시 주문 발생 시 → 한 건만 HOLD 성공, 나머지는 실패 처리 (동시성 제어)
 - 반품 완료 시 → SOLD → AVAILABLE 복구
 
@@ -129,15 +129,15 @@ CANCELLED          CANCELLED            CANCELLED              (취소 불가)
 | `CANCELLED` | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
 
 **정책**
-- CONFIRMED 시점 → 재고 HOLD 처리
-- ASSIGNED 시점 → 재고 TRANSFER 처리
+- CONFIRMED 시점 → 재고 RESERVED 처리
+- ASSIGNED 시점 → 재고 IN_TRANSIT 처리
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
 - COMPLETED = 스타일링 세션 종료를 의미 (모든 상품 판매 완료가 아님)
   - 구매 확정 상품 → 현장 주문 생성 → 재고 SOLD
   - 미구매 상품 → 재고 AVAILABLE 복구
 - 취소 시 재고 복구
-  - CONFIRMED 취소 → HOLD 해제 → AVAILABLE
-  - ASSIGNED 취소 → TRANSFER 해제 → AVAILABLE (이동된 위치 기준)
+  - CONFIRMED 취소 → RESERVED 해제 → AVAILABLE
+  - ASSIGNED 취소 → IN_TRANSIT 해제 → AVAILABLE (이동된 위치 기준)
 
 ---
 
@@ -248,7 +248,7 @@ READY ──배송시작──► SHIPPED ──완료──► DELIVERED
 
 | 도메인 | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
 |--------|-------------|----------|----------|
-| 재고 | AVAILABLE → HOLD → TRANSFER → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
+| 재고 | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
 | 주문 | PENDING → PAID → IN_PREPARATION → SHIPPED → DELIVERED | SHIPPED 이후 취소 불가 | 1차 |
 | 예약 | PENDING → CONFIRMED → ASSIGNED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원 | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |

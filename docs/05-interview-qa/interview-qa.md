@@ -5,6 +5,27 @@
 
 ---
 
+## 서비스 아키텍처
+
+---
+
+**Q. OrderService가 너무 많은 책임을 가지는 것 아닌가요?**
+
+OrderService는 주문 흐름의 오케스트레이터 역할만 합니다.
+재고 처리는 InventoryService, 결제는 PaymentService, 배송은 DeliveryService에 위임하고,
+OrderService는 그 흐름을 조율하고 OrderHistory를 기록하는 역할에 집중합니다.
+실무 모놀리식 구조에서는 이 방식이 일반적이며, MSA 전환 시 Saga 패턴으로 확장 가능합니다.
+
+---
+
+**Q. 서비스 간 트랜잭션은 어떻게 처리하나요?**
+
+모놀리식 구조이므로 OrderService의 @Transactional 하나로 재고 RESERVED → 결제 → OrderHistory 기록이 하나의 트랜잭션으로 묶입니다.
+결제 실패 시 재고 RESERVED도 롤백되어 자동으로 AVAILABLE 복구됩니다.
+MSA 전환 시에는 각 서비스가 독립 트랜잭션을 가지고, Saga 패턴(보상 트랜잭션)으로 일관성을 보장해야 합니다.
+
+---
+
 ## 기술 스택
 
 ---
@@ -58,16 +79,75 @@ DB 컬럼은 nullable이지만 비즈니스 규칙은 Service에서 보장했습
 **Q. 재고를 상태 기반으로 관리한 이유는요?**
 
 단순 수량 감소는 동시 주문 시 초과 판매 위험이 있고, 재고가 어떤 상태인지 추적이 어렵습니다.
-AVAILABLE/HOLD/TRANSFER/SOLD 상태로 관리하면 선점→결제→판매 흐름이 명확하고, 2차 출장 서비스의 물리적 이동도 TRANSFER로 자연스럽게 표현할 수 있었습니다.
+AVAILABLE/RESERVED/IN_TRANSIT/SOLD 상태로 관리하면 선점→결제→판매 흐름이 명확하고, 2차 출장 서비스의 물리적 이동도 IN_TRANSIT으로 자연스럽게 표현할 수 있었습니다.
 
 ---
 
-**Q. TRANSFER 상태가 있는데 이게 뭔가요?**
+**Q. HOLD나 TRANSFER 대신 RESERVED, IN_TRANSIT으로 이름 지은 이유는요?**
+
+HOLD는 "잡아두다"는 기술적 표현이고, RESERVED는 "예약됨"이라는 비즈니스 의도를 더 명확히 표현합니다.
+TRANSFER는 "이전/전송"의 의미가 혼재하지만, IN_TRANSIT은 "물리적으로 이동 중"이라는 상태를 더 직관적으로 표현합니다.
+상태명은 코드를 처음 보는 사람도 의도를 바로 이해할 수 있어야 한다고 판단했습니다.
+
+---
+
+**Q. IN_TRANSIT 상태가 있는데 이게 뭔가요?**
 
 2차 출장 서비스 전용 상태입니다.
-1차 온라인 주문은 Delivery 테이블이 배송 상태를 담당하므로 재고는 HOLD→SOLD로 단순화했습니다.
+1차 온라인 주문은 Delivery 테이블이 배송 상태를 담당하므로 재고는 RESERVED→SOLD로 단순화했습니다.
 2차는 스타일리스트가 상품을 물리적으로 들고 이동하기 때문에 재고 자체의 위치를 추적해야 합니다.
-TRANSFER 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구가 필요하기 때문에 별도 상태로 관리했습니다.
+IN_TRANSIT 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구가 필요하기 때문에 별도 상태로 관리했습니다.
+
+---
+
+**Q. 재고가 RESERVED 상태인데 결제가 안 되면 어떻게 되나요?**
+
+결제 실패 시 OrderService의 @Transactional이 롤백되어 재고 RESERVED도 함께 해제됩니다.
+추가로 RESERVED 상태가 일정 시간(예: 10분) 초과되면 배치 처리로 자동 AVAILABLE 복구합니다.
+이 이중 안전장치로 재고가 영구적으로 묶이는 상황을 방지합니다.
+
+---
+
+**Q. 동시에 같은 상품을 두 명이 주문하면 어떻게 되나요?**
+
+@Version 낙관적 락으로 제어합니다.
+두 요청이 동시에 RESERVED 시도 시, 먼저 커밋된 트랜잭션만 성공하고 나머지는 OptimisticLockException이 발생합니다.
+실패한 요청은 "재고 선점 실패" 응답을 반환합니다.
+
+---
+
+**Q. RESERVED 상태에서 바로 SOLD로 가지 않고 IN_TRANSIT을 거치는 이유는요?**
+
+IN_TRANSIT은 2차 출장 서비스 전용입니다.
+1차 온라인 주문은 RESERVED → SOLD로 단순화했습니다.
+2차는 스타일리스트가 상품을 물리적으로 들고 현장으로 이동하는 특성이 있어서,
+그 이동 중 상태를 별도로 추적해야 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구가 가능합니다.
+
+---
+
+**Q. 재고가 하나뿐이라고 가정하는데 실무에서는 수량이 있지 않나요?**
+
+quantity 컬럼이 있습니다.
+다만 이 서비스는 2차 O2O 출장 스타일링이 핵심으로, 스타일리스트가 상품을 직접 선별합니다.
+SKU(사이즈/컬러) 없이 단일 상품 단위로 재고를 관리하고, 수량은 AVAILABLE 상태에서 몇 개가 있는지를 의미합니다.
+온라인 확장 시 ProductVariant 테이블 추가로 SKU 단위 관리가 가능합니다.
+
+---
+
+**Q. InventoryLog는 왜 있나요? Inventory 자체에서 이력을 알 수 없나요?**
+
+Inventory는 현재 상태만 가지고 있어서 "어떻게 이 상태가 됐는지"를 알 수 없습니다.
+InventoryLog가 from_status, to_status, reason, related_order_id를 기록해서
+재고 이력 추적과 문제 발생 시 원인 파악이 가능합니다.
+append-only 구조라 BaseLogEntity를 적용했습니다.
+
+---
+
+**Q. 반품 시 재고 복구는 어떻게 처리하나요?**
+
+RETURNED 시 OrderService 오케스트레이터가 InventoryService.restore()를 호출합니다.
+Inventory 상태를 SOLD → AVAILABLE로 변경하고 InventoryLog에 기록합니다.
+동시에 PaymentService.refund()로 환불 처리가 연계됩니다.
 
 ---
 
@@ -79,19 +159,22 @@ TRANSFER 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구가
 
 ---
 
-**Q. ProductHistory를 별도 테이블로 분리한 이유는요?**
+**Q. ProductHistory가 있는데 OrderItem에도 가격 스냅샷이 있잖아요. 중복 아닌가요?**
 
-상품 가격이나 이름이 변경되면 기존 주문 내역의 정보도 바뀌는 문제가 생깁니다.
-SCD Type 2 패턴을 적용해 변경 시 기존 레코드를 종료하고 새 레코드를 생성하는 방식으로 이력을 관리했습니다.
-OrderItem에 주문 당시 스냅샷(product_name, price)도 함께 저장해서 조회 성능도 확보했습니다.
+역할이 다릅니다.
+OrderItem의 스냅샷은 고객이 결제한 시점의 진실(고객 기준)이고,
+ProductHistory는 상품 가격이 실제로 언제 변경됐는지의 운영 기준입니다.
+고객이 "이벤트 기간에 10,000원이었는데 왜 나는 12,000원에 결제됐냐"고 하면,
+ProductHistory로 "그 이벤트는 1/1~1/15이고 고객 주문은 1/20"임을 증명할 수 있습니다.
+OrderItem만으로는 다른 고객 주문 기록과 교차 비교가 불가능합니다.
 
 ---
 
-**Q. isCurrent의 유일성을 DB 제약이 아닌 코드로 보장한 이유는요?**
+**Q. ProductHistory에 isCurrent가 없는 이유는요?**
 
-MySQL은 부분 인덱스(WHERE 조건 있는 UNIQUE)를 지원하지 않습니다.
-(product_id, is_current)에 UNIQUE를 걸면 이력 레코드(false)가 여러 개 들어갈 수 없어서 이력 관리 자체가 불가능해집니다.
-어차피 이력 교체 로직은 @Transactional로 원자적으로 처리해야 하므로, 애플리케이션 레벨 보장이 현실적이고 명확한 방법이라 판단했습니다.
+ProductHistory에 쌓이는 건 전부 변경 전 값(과거)입니다.
+현재 값은 Product 테이블에 직접 있으므로, isCurrent 필터 없이 `productRepository.findById(id)`로 바로 조회합니다.
+isCurrent를 두면 항상 false만 들어가는 의미 없는 컬럼이 됩니다.
 
 ---
 

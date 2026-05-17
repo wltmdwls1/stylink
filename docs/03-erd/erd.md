@@ -20,7 +20,7 @@
 | updated_by_type | VARCHAR(20) | 수정자 유형 (MEMBER / ADMIN / SYSTEM) |
 
 > 이력성 테이블(append-only)은 `created_at`, `created_by`, `created_by_type` 3개만 적용
-> 해당 테이블: `order_history`, `inventory_log`, `outbound_api_log`, `inbound_api_log`
+> 해당 테이블: `order_history`, `inventory_log`, `product_history`, `outbound_api_log`, `inbound_api_log`
 
 ---
 
@@ -120,6 +120,10 @@ Product 1 ─── N OrderItem
 |--------|------|----------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 상품 ID |
 | category_id | BIGINT | FK → category.id, NOT NULL | 카테고리 ID |
+| name | VARCHAR(100) | NOT NULL | 상품명 (현재) |
+| price | BIGINT | NOT NULL | 가격 (현재) |
+| description | TEXT | | 상품 설명 (현재) |
+| image_url | VARCHAR(500) | | 대표 이미지 (현재, S3 URL) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
@@ -127,31 +131,28 @@ Product 1 ─── N OrderItem
 | updated_by | BIGINT | | 수정자 ID |
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
-> 가격, 상품명 등 변경 가능한 정보는 product_history에서 관리
+> 현재 상품 정보(name, price 등)를 직접 보유
+> 변경 시 변경 전 값을 product_history에 INSERT 후 product UPDATE
 
 ---
 
-### product_history (상품 이력)
+### product_history (상품 변경 이력) — append-only
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 이력 ID |
 | product_id | BIGINT | FK → product.id, NOT NULL | 상품 ID |
-| name | VARCHAR(100) | NOT NULL | 상품명 |
-| price | BIGINT | NOT NULL | 가격 |
-| description | TEXT | | 상품 설명 |
-| image_url | VARCHAR(500) | | 대표 이미지 (S3 URL) |
-| sale_start_date | DATE | NOT NULL | 판매 시작일 |
-| sale_end_date | DATE | NOT NULL | 판매 종료일 (현재: 9999-12-31) |
-| is_current | TINYINT(1) | NOT NULL, DEFAULT 1 | 현재 유효 여부 (1=현재, 0=이력) |
+| name | VARCHAR(100) | NOT NULL | 변경 전 상품명 |
+| price | BIGINT | NOT NULL | 변경 전 가격 |
+| description | TEXT | | 변경 전 상품 설명 |
+| image_url | VARCHAR(500) | | 변경 전 대표 이미지 |
 | created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
 | created_by_type | VARCHAR(20) | | 생성자 유형 (ADMIN) |
-| updated_by | BIGINT | | 수정자 ID |
-| updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
-**인덱스:** `(product_id, is_current)` — 현재 유효 상품 조회 최적화
+> 상품 정보 변경 시 변경 전 값을 INSERT (append-only)
+> 현재 상품 정보는 product 테이블에서 직접 조회
+> 관리자 분쟁 해결 용도 — "언제 가격이 얼마였는가" 운영 기준 데이터
 
 ---
 
@@ -239,9 +240,8 @@ Product 1 ─── N OrderItem
 | id | BIGINT | PK, AUTO_INCREMENT | 주문 상품 ID |
 | order_id | BIGINT | FK → order.id, NOT NULL | 주문 ID |
 | product_id | BIGINT | FK → product.id, NOT NULL | 상품 ID |
-| product_history_id | BIGINT | FK → product_history.id, NOT NULL | 주문 당시 상품 이력 |
-| product_name | VARCHAR(100) | NOT NULL | 상품명 스냅샷 |
-| price | BIGINT | NOT NULL | 가격 스냅샷 |
+| product_name | VARCHAR(100) | NOT NULL | 상품명 스냅샷 (주문 시점) |
+| price | BIGINT | NOT NULL | 가격 스냅샷 (주문 시점) |
 | quantity | INT | NOT NULL | 수량 |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
@@ -282,7 +282,7 @@ Product 1 ─── N OrderItem
 | updated_by | BIGINT | | 수정자 ID |
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
-**재고 상태값:** `AVAILABLE` / `HOLD` / `TRANSFER` / `SOLD`
+**재고 상태값:** `AVAILABLE` / `RESERVED` / `IN_TRANSIT` / `SOLD`
 
 > `version` 컬럼: JPA `@Version` 낙관적 락으로 동시 HOLD 중복 방지
 
