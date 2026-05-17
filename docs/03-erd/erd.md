@@ -80,12 +80,19 @@ Product 1 ─── N OrderItem
 | auth_status | VARCHAR(20) | NOT NULL | 인증상태 (UNVERIFIED / VERIFIED) |
 | grade | VARCHAR(20) | NOT NULL | 등급 (NORMAL / VIP) |
 | total_purchase_amount | BIGINT | DEFAULT 0 | 누적 구매금액 (VIP 등급 기준) |
+| height | INT | nullable | 키 (cm) |
+| weight | INT | nullable | 몸무게 (kg) |
+| top_size | VARCHAR(10) | nullable | 상의 사이즈 (S/M/L/XL 등) |
+| bottom_size | VARCHAR(10) | nullable | 하의 사이즈 |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
 | created_by_type | VARCHAR(20) | | 생성자 유형 (MEMBER / SYSTEM) |
 | updated_by | BIGINT | | 수정자 ID |
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
+
+> 스펙 정보(height ~ preferred_style): 회원가입 시 선택 입력 (nullable)
+> 2차 예약 신청 시 Service 레이어에서 필수 여부 체크
 
 ---
 

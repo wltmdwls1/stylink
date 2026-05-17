@@ -268,12 +268,28 @@ public class Member extends BaseEntity {
 
     @Column(nullable = false)
     private Long totalPurchaseAmount = 0L;
+
+    // 스타일링 스펙 정보 — 선택 입력 (nullable)
+    // 2차 예약 신청 시 Service 레이어에서 필수 여부 체크
+    @Column
+    private Integer height;                  // 키 (cm)
+
+    @Column
+    private Integer weight;                  // 몸무게 (kg)
+
+    @Column(length = 10)
+    private String topSize;                  // 상의 사이즈 (S/M/L/XL 등)
+
+    @Column(length = 10)
+    private String bottomSize;               // 하의 사이즈
+
 }
 ```
 
 **특이사항:**
 - `password` → BCrypt 해시값 저장
 - `phone` → AES256 암호화 저장, 응답 시 마스킹 처리 (010-****-5678)
+- 스펙 정보(height ~ preferredStyle) → 회원가입 시 선택, 2차 예약 신청 시 ReservationService에서 필수 체크
 - Wishlist, Cart, Order와의 연관관계는 각 테이블에서 단방향으로 참조
 
 ---
