@@ -120,7 +120,7 @@ FAILED            CANCELLED             CANCELLED                               
             확정                        출장시작                완료
 PENDING ──────────► CONFIRMED ──────────────────► IN_PROGRESS ──────────► COMPLETED
    │                    │                               │
-   │ 취소               │ 취소                           │ (취소 불가)
+  취소                 취소                           (취소 불가)
    ▼                    ▼
 CANCELLED           CANCELLED
 ```
