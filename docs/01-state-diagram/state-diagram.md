@@ -117,33 +117,31 @@ FAILED            CANCELLED             CANCELLED                               
 > 2차 O2O 출장 스타일링 서비스
 
 ```
-            확정             스타일리스트 배정           출장시작                완료
-PENDING ──────────► CONFIRMED ────────────────► ASSIGNED ──────────► IN_PROGRESS ──────────► COMPLETED
-   │                    │                          │                      │
-  취소                 취소                        취소                (취소 불가)
-   ▼                    ▼                          ▼
-CANCELLED           CANCELLED                  CANCELLED
+            확정                        출장시작                완료
+PENDING ──────────► CONFIRMED ──────────────────► IN_PROGRESS ──────────► COMPLETED
+   │                    │                               │
+   │ 취소               │ 취소                           │ (취소 불가)
+   ▼                    ▼
+CANCELLED           CANCELLED
 ```
 
 | 상태 | 한글명 | 설명 |
 |------|--------|------|
 | `PENDING` | 예약신청 | 고객 예약 신청 완료, 확정 대기 |
-| `CONFIRMED` | 예약확정 | 예약 확정, 재고 HOLD 처리 |
-| `ASSIGNED` | 스타일리스트배정완료 | 스타일리스트 배정 완료, 재고 IN_TRANSIT 처리 |
-| `IN_PROGRESS` | 진행중 | 스타일리스트 출장 중 → 이후 취소 불가 |
+| `CONFIRMED` | 예약확정 | 스타일리스트 배정 + 날짜 확정, 재고 RESERVED 처리 |
+| `IN_PROGRESS` | 진행중 | 스타일리스트 출장 시작 → 재고 IN_TRANSIT 처리, 이후 취소 불가 |
 | `COMPLETED` | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
 | `CANCELLED` | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
 
 **정책**
-- CONFIRMED 시점 → 재고 RESERVED 처리
-- ASSIGNED 시점 → 재고 IN_TRANSIT 처리
+- CONFIRMED 시점 → 스타일리스트 배정 완료 + 재고 RESERVED 처리
+- IN_PROGRESS 시점 → 재고 IN_TRANSIT 처리 (스타일리스트 출발)
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
 - COMPLETED = 스타일링 세션 종료를 의미 (모든 상품 판매 완료가 아님)
   - 구매 확정 상품 → 현장 주문 생성 → 재고 SOLD
   - 미구매 상품 → 재고 AVAILABLE 복구
 - 취소 시 재고 복구
   - CONFIRMED 취소 → RESERVED 해제 → AVAILABLE
-  - ASSIGNED 취소 → IN_TRANSIT 해제 → AVAILABLE (이동된 위치 기준)
 
 ---
 
@@ -256,7 +254,7 @@ READY ──배송시작──► SHIPPED ──완료──► DELIVERED
 |--------|-------------|----------|----------|
 | 재고 | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
 | 주문 | PENDING → PAID → IN_PREPARATION → SHIPPED → DELIVERED | SHIPPED 이후 취소 불가 | 1차 |
-| 예약 | PENDING → CONFIRMED → ASSIGNED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
+| 예약 | PENDING → CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원 | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
 | 결제 | PENDING → SUCCESS → CANCELLED / REFUNDED | SHIPPED 기준 취소/환불 구분 | 1차 (Mock) |
 | 배송 | READY → SHIPPED → DELIVERED → RETURNED | - | 1차 (Mock) |
