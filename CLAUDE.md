@@ -23,7 +23,7 @@
 - 프로젝트명: **stylink** (style + link, 스타일을 연결해준다는 의미)
 - GitHub: https://github.com/wltmdwls1/stylink.git
 - 로컬(PC): `C:\dev\stylink`
-- 핵심 목표: 상품 상태(HOLD/MOVE/RELEASE) 기반 이벤트 중심 O2O 커머스 백엔드
+- 핵심 목표: 재고 상태(AVAILABLE/RESERVED/IN_TRANSIT/SOLD) 기반 O2O 커머스 백엔드
 
 ---
 
@@ -38,8 +38,9 @@
 ### 2차 오픈
 O2O 출장 스타일링 서비스
 ```
-찜 → 스타일링 예약 → 재고 HOLD → 스타일리스트 배정 → 출장 → 현장 판매
-취소 시: 재고 위치 기준 복구
+찜 → 스타일링 예약(PENDING) → 예약확정/스타일리스트배정(CONFIRMED) → 출장시작(IN_PROGRESS) → 현장 판매(COMPLETED)
+재고: AVAILABLE → RESERVED → IN_TRANSIT → SOLD
+취소 시: 재고 위치 기준 AVAILABLE 복구
 ```
 
 ### 완전 제외 (재론 금지)
@@ -116,9 +117,9 @@ batch   ──┘         │
 
 ### 사용자가 할 것
 - 핵심 비즈니스 로직 전부
-  - `InventoryService` (HOLD / TRANSFER / RELEASE 흐름)
-  - `OrderService` (주문 생성 → 결제 → 재고 연동)
-  - `ReservationService` (예약 → 코디 배정 → 현장 판매)
+  - `InventoryService` (AVAILABLE / RESERVED / IN_TRANSIT / SOLD 흐름)
+  - `OrderService` (주문 생성 → 결제 → 재고 연동, 오케스트레이터 패턴)
+  - `ReservationService` (예약 → 예약확정 → 출장 → 현장 판매)
   - `PaymentService` (Mock 호출 + 결과 처리)
 - Controller, DTO
 - 트랜잭션 경계 결정 (`@Transactional` 위치)
@@ -129,14 +130,19 @@ batch   ──┘         │
 
 ## 문서 작성 계획
 
-### Phase 1 — 코딩 전 필수 (현재 진행 중)
-- [ ] 상태 다이어그램 (재고/주문/예약/회원/결제/배송)
-- [ ] 도메인 모델 정의서
-- [ ] ERD
-- [ ] JPA Entity 설계서
+### Phase 1 — 코딩 전 필수 ✅ 완료
+- [x] 상태 다이어그램 (재고/주문/예약/회원/결제/배송)
+- [x] 도메인 모델 정의서
+- [x] ERD (erd.md + erd.xml diagrams.net)
+- [x] JPA Entity 설계서
+- [x] 인터뷰 Q&A + 설계 결정 근거 (design-decisions.md / interview-qa.md)
 
-### Phase 2 — 코딩 중 병행
-- [ ] Mock 명세서
+### Phase 2 — 구현 (현재 단계)
+- [ ] 멀티모듈 프로젝트 셋팅 (build.gradle, 모듈 구조)
+- [ ] 공통 코드 (ApiResponse, 예외 구조, Auditing)
+- [ ] JPA Entity 구현
+- [ ] external-mock 구현체
+- [ ] 핵심 비즈니스 로직 구현 (사용자 담당)
 - [ ] API 명세서 (Swagger 병행)
 - [ ] 테스트 시나리오 정의서
 
@@ -164,7 +170,9 @@ batch   ──┘         │
 - [x] 로컬 클론 완료 (C:\dev\stylink)
 - [x] CLAUDE.md 생성 및 GitHub 업로드
 - [x] docs 폴더 구조 생성
-- [x] 상태 다이어그램 완료
-- [ ] 도메인 모델 정의서 ← **다음 할 일**
-- [ ] ERD
-- [ ] JPA Entity 설계서
+- [x] 상태 다이어그램 완료 (docs/01-state-diagram/)
+- [x] 도메인 모델 정의서 완료 (docs/02-domain-model/)
+- [x] ERD 완료 (docs/03-erd/ — erd.md + erd.xml)
+- [x] JPA Entity 설계서 완료 (docs/04-entity/)
+- [x] 인터뷰 Q&A + 설계 결정 근거 완료 (docs/05-interview-qa/)
+- [ ] 멀티모듈 프로젝트 셋팅 ← **다음 할 일**
