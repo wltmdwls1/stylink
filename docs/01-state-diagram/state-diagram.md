@@ -43,21 +43,21 @@
 
 ### 1차 (온라인 주문)
 ```
-AVAILABLE ──주문발생──► RESERVED ──배송완료──► SOLD ──반품완료──► AVAILABLE
-    ▲              │
-    └──────────────┘
-    취소 / 만료 / 결제실패
+            주문발생                  배송완료              반품완료
+AVAILABLE ──────────► RESERVED ──────────────► SOLD ──────────► AVAILABLE
+    ▲                     │
+    │  취소 / 만료 / 결제실패
+    └─────────────────────┘
 ```
 
 ### 2차 (O2O 출장 서비스)
 ```
-AVAILABLE ──예약확정──► RESERVED ──스타일리스트 이동──► IN_TRANSIT ──현장판매완료──► SOLD ──반품완료──► AVAILABLE
-    ▲              │                                        │
-    └──────────────┘                                        │
-    취소                                          예약취소(이동 후)
-                                                            │
-                                                            ▼
-                                                        AVAILABLE
+            예약확정            스타일리스트 이동         현장판매완료           반품완료
+AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD ──────────► AVAILABLE
+    ▲                     │                           │
+    │         취소         │         예약취소(이동 후)  │
+    └─────────────────────┘                           ▼
+                                                  AVAILABLE
 ```
 
 | 상태 | 한글명 | 설명 |
@@ -80,15 +80,16 @@ AVAILABLE ──예약확정──► RESERVED ──스타일리스트 이동�
 > 1차 온라인 쇼핑몰 중심
 
 ```
-PENDING ──결제요청──► PAID ──준비──► IN_PREPARATION ──출고──► SHIPPED ──완료──► DELIVERED
-   │                   │                                         │                  │
-   │ 결제실패           │ 취소 가능                                │ 취소불가           │ 반품요청
-   ▼                   ▼                                         ▼                  ▼
-FAILED             CANCELLED                               (취소 불가)        RETURN_REQUESTED
-                                                                                    │
-                                                                              반품완료│
-                                                                                    ▼
-                                                                                RETURNED
+            결제요청             준비완료                출고              배송완료
+PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► SHIPPED ──────────► DELIVERED
+   │                  │                      │                                             │
+   │ 결제실패          │ 취소                  │ 취소                                        │ 반품요청
+   ▼                  ▼                      ▼                                             ▼
+FAILED            CANCELLED             CANCELLED                                  RETURN_REQUESTED
+                                                                                          │
+                                                                                   반품완료 │
+                                                                                          ▼
+                                                                                       RETURNED
 ```
 
 | 상태 | 한글명 | 설명 |
@@ -104,7 +105,7 @@ FAILED             CANCELLED                               (취소 불가)      
 | `RETURNED` | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
 
 **정책**
-- PENDING → 결제 실패 시 재고 HOLD 해제 (AVAILABLE 복구)
+- PENDING → 결제 실패 시 재고 RESERVED 해제 (AVAILABLE 복구)
 - PAID, IN_PREPARATION 상태에서만 취소 가능
 - **SHIPPED 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
 - 반품 완료 시 → 재고 AVAILABLE 복구 + 환불(REFUND) 처리
@@ -116,18 +117,19 @@ FAILED             CANCELLED                               (취소 불가)      
 > 2차 O2O 출장 스타일링 서비스
 
 ```
-PENDING ──확정──► CONFIRMED ──스타일리스트배정──► ASSIGNED ──출장시작──► IN_PROGRESS ──완료──► COMPLETED
-   │                  │                     │                        │
-   │ 취소              │ 취소                 │ 취소                    │ 취소불가
-   ▼                  ▼                     ▼                        ▼
-CANCELLED          CANCELLED            CANCELLED              (취소 불가)
+            확정             스타일리스트 배정           출장시작                완료
+PENDING ──────────► CONFIRMED ────────────────► ASSIGNED ──────────► IN_PROGRESS ──────────► COMPLETED
+   │                    │                          │                      │
+   │ 취소               │ 취소                     │ 취소                  │ (취소 불가)
+   ▼                    ▼                          ▼
+CANCELLED           CANCELLED                  CANCELLED
 ```
 
 | 상태 | 한글명 | 설명 |
 |------|--------|------|
 | `PENDING` | 예약신청 | 고객 예약 신청 완료, 확정 대기 |
 | `CONFIRMED` | 예약확정 | 예약 확정, 재고 HOLD 처리 |
-| `ASSIGNED` | 스타일리스트배정완료 | 스타일리스트 배정 완료, 재고 TRANSFER |
+| `ASSIGNED` | 스타일리스트배정완료 | 스타일리스트 배정 완료, 재고 IN_TRANSIT 처리 |
 | `IN_PROGRESS` | 진행중 | 스타일리스트 출장 중 → 이후 취소 불가 |
 | `COMPLETED` | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
 | `CANCELLED` | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
@@ -209,7 +211,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 |------|--------|------|
 | `PENDING` | 결제대기 | 결제 요청 중 |
 | `SUCCESS` | 결제완료 | 결제 승인 완료 |
-| `FAILED` | 결제실패 | 결제 실패 → 주문 FAILED + 재고 HOLD 해제 |
+| `FAILED` | 결제실패 | 결제 실패 → 주문 FAILED + 재고 RESERVED 해제 |
 | `CANCEL_REQUESTED` | 취소요청 | 취소 요청 중 (SHIPPED 이전) |
 | `CANCELLED` | 취소완료 | 결제 취소 완료 |
 | `REFUND_REQUESTED` | 환불요청 | 환불 요청 중 (SHIPPED 이후 반품) |
@@ -218,7 +220,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 **정책 (Mock 기준)**
 - **SHIPPED 이전** → 취소(CANCEL) 처리
 - **SHIPPED 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
-- 결제 실패 시 → 주문 FAILED + 재고 HOLD 해제 (전체 롤백)
+- 결제 실패 시 → 주문 FAILED + 재고 RESERVED 해제 (전체 롤백)
 
 ---
 
