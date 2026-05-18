@@ -46,7 +46,7 @@
             주문발생                  배송완료              반품완료
 AVAILABLE ──────────► RESERVED ──────────────► SOLD ──────────► AVAILABLE
     ▲                     │
-    │  취소 / 만료 / 결제실패
+    │             취소 / 만료 / 결제실패
     └─────────────────────┘
 ```
 
@@ -55,7 +55,7 @@ AVAILABLE ──────────► RESERVED ─────────
             예약확정            스타일리스트 이동         현장판매완료           반품완료
 AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD ──────────► AVAILABLE
     ▲                     │                           │
-    │         취소         │         예약취소(이동 후)  │
+    │                    취소                  예약취소(이동 후)   
     └─────────────────────┘                           ▼
                                                   AVAILABLE
 ```
@@ -82,14 +82,14 @@ AVAILABLE ──────────► RESERVED ─────────
 ```
             결제요청             준비완료                출고              배송완료
 PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► SHIPPED ──────────► DELIVERED
-   │                  │                      │                                             │
-   │ 결제실패          │ 취소                  │ 취소                                        │ 반품요청
-   ▼                  ▼                      ▼                                             ▼
-FAILED            CANCELLED             CANCELLED                                  RETURN_REQUESTED
-                                                                                          │
-                                                                                   반품완료 │
-                                                                                          ▼
-                                                                                       RETURNED
+   │                  │                      │                                           │
+결제실패              취소                   취소                                      반품요청
+   ▼                  ▼                      ▼                                           ▼
+FAILED            CANCELLED             CANCELLED                                 RETURN_REQUESTED
+                                                                                         │
+                                                                                      반품완료
+                                                                                         ▼
+                                                                                      RETURNED
 ```
 
 | 상태 | 한글명 | 설명 |
@@ -120,7 +120,7 @@ FAILED            CANCELLED             CANCELLED                               
             확정             스타일리스트 배정           출장시작                완료
 PENDING ──────────► CONFIRMED ────────────────► ASSIGNED ──────────► IN_PROGRESS ──────────► COMPLETED
    │                    │                          │                      │
-   │ 취소               │ 취소                     │ 취소                  │ (취소 불가)
+  취소                 취소                        취소                (취소 불가)
    ▼                    ▼                          ▼
 CANCELLED           CANCELLED                  CANCELLED
 ```
@@ -196,7 +196,7 @@ NORMAL ──누적구매 100만원 이상──► VIP
 ```
 PENDING ──결제요청──► SUCCESS
    │
-   │ 실패
+  실패
    ▼
 FAILED
 
@@ -231,7 +231,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 ```
 READY ──배송시작──► SHIPPED ──완료──► DELIVERED
                                          │
-                                         │ 반품요청
+                                      반품요청
                                          ▼
                                   RETURN_REQUESTED ──반품완료──► RETURNED
 ```
