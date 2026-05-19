@@ -1,0 +1,8 @@
+rootProject.name = 'stylink'
+
+include 'fo-api'
+include 'bo-api'
+include 'batch'
+include 'domain'
+include 'common'
+include 'external-mock'
