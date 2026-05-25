@@ -141,9 +141,11 @@ batch   ──┘         │
 - [x] 인터뷰 Q&A + 설계 결정 근거 (design-decisions.md / interview-qa.md)
 
 ### Phase 2 — 구현 (현재 단계)
-- [ ] 멀티모듈 프로젝트 셋팅 (build.gradle, 모듈 구조)
-- [ ] 공통 코드 (ApiResponse, 예외 구조, Auditing)
-- [ ] JPA Entity 구현
+- [x] 멀티모듈 프로젝트 셋팅 (build.gradle, 모듈 구조, Gradle Wrapper, Application 클래스)
+- [x] 공통 코드 (ApiResponse, ErrorCode, BusinessException, BaseEntity, BaseLogEntity, Auditing)
+- [x] JPA Entity 구현 (Enum 9종, Entity 20종)
+- [x] DB 연결 확인 (MySQL, ${DB_PASSWORD} 환경변수 방식)
+- [ ] DDL 작성 + 테이블 생성 ← **다음 할 일**
 - [ ] external-mock 구현체
 - [ ] 핵심 비즈니스 로직 구현 (사용자 담당)
 - [ ] API 명세서 (Swagger 병행)
@@ -178,4 +180,8 @@ batch   ──┘         │
 - [x] ERD 완료 (docs/03-erd/ — erd.md + erd.xml)
 - [x] JPA Entity 설계서 완료 (docs/04-entity/)
 - [x] 인터뷰 Q&A + 설계 결정 근거 완료 (docs/05-interview-qa/)
-- [ ] 멀티모듈 프로젝트 셋팅 ← **다음 할 일**
+- [x] 멀티모듈 프로젝트 셋팅 완료 (6개 모듈, Gradle Wrapper, Application 클래스, application.yml)
+- [x] 공통 코드 완료 (ApiResponse, ErrorCode, BusinessException, BaseEntity, BaseLogEntity)
+- [x] JPA Entity 완료 (Enum 9종, Entity 20종)
+- [x] DB 연결 확인 완료 (MySQL, ${DB_PASSWORD} 환경변수 방식)
+- [ ] DDL 작성 + 테이블 생성 ← **다음 할 일**
