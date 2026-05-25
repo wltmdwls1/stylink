@@ -7,6 +7,8 @@
 
 ## 1. Entity 상태 전이 메서드 패턴
 
+> 🕐 **적용 시점: 각 도메인 구현 시작 시 (Order/Inventory/Reservation)**
+
 상태를 직접 변경하지 말 것. Entity에 전이 메서드를 두고 규칙을 강제할 것.
 
 ```java
@@ -28,6 +30,8 @@
 
 ## 2. order_number 생성 로직
 
+> 🕐 **적용 시점: OrderService 구현 시 (주문 생성 로직)**
+
 형식: `ORD` + 날짜 8자리 + 시퀀스 5자리 = 16자리
 예) `ORD2024123100001`
 
@@ -39,6 +43,8 @@
 ---
 
 ## 3. 전화번호 암호화 처리 (AES256 + SHA-256)
+
+> 🕐 **적용 시점: MemberService 회원가입 구현 시 (Stylist도 동일하게 적용)**
 
 저장 시:
 ```
@@ -64,6 +70,8 @@ phone → AES256 복호화 → 원문 반환
 
 ## 4. 낙관적 락 예외 처리
 
+> 🕐 **적용 시점: InventoryService.reserve() 구현 시**
+
 Inventory.reserve() 호출 시 동시 요청이 들어오면 `OptimisticLockException` 발생.
 
 ```java
@@ -73,7 +81,6 @@ try {
 } catch (OptimisticLockException e) {
     throw new BusinessException(ErrorCode.INVENTORY_NOT_AVAILABLE);
 }*/
-
 ```
 
 - Service 레이어에서 catch 후 사용자 친화적 메시지로 변환
@@ -82,6 +89,8 @@ try {
 ---
 
 ## 5. InventoryLog 기록 시점
+
+> 🕐 **적용 시점: InventoryService 구현 시 (상태 변경 메서드마다)**
 
 Inventory 상태 변경 시 반드시 InventoryLog도 함께 기록할 것.
 
@@ -95,7 +104,6 @@ inventoryLogRepository.save(new InventoryLog(
     InventoryChangeReason.RESERVED_BY_ORDER,
     "주문번호: " + order.getOrderNumber()  // description
 ));*/
-
 ```
 
 - InventoryService 내부에서 상태 변경과 로그 기록을 항상 함께 처리
@@ -105,17 +113,21 @@ inventoryLogRepository.save(new InventoryLog(
 
 ## 6. append-only 테이블 주의사항
 
+> 🕐 **적용 시점: 각 해당 도메인 구현 시**
+
 `BaseLogEntity` 사용 테이블은 UPDATE 금지.
 
-- `ProductHistory` — 상품 변경 시 INSERT만
-- `OrderItem` — 주문 생성 시 INSERT만
-- `OrderHistory` — 상태 변경 시 INSERT만
-- `InventoryLog` — 상태 변경 시 INSERT만
-- `Wishlist` — 찜 추가 시 INSERT만 (삭제는 DELETE)
+- `ProductHistory` — 상품 변경 시 INSERT만 (상품 관리 구현 시)
+- `OrderItem` — 주문 생성 시 INSERT만 (OrderService 구현 시)
+- `OrderHistory` — 상태 변경 시 INSERT만 (OrderService 구현 시)
+- `InventoryLog` — 상태 변경 시 INSERT만 (InventoryService 구현 시)
+- `Wishlist` — 찜 추가 시 INSERT만, 삭제는 DELETE (WishlistService 구현 시)
 
 ---
 
 ## 7. 트랜잭션 경계 (사용자 담당)
+
+> 🕐 **적용 시점: OrderService 구현 시 (@Transactional 위치 결정)**
 
 핵심 흐름은 단일 트랜잭션으로 묶을 것.
 
@@ -125,3 +137,24 @@ inventoryLogRepository.save(new InventoryLog(
 - 반품 완료: 재고 AVAILABLE 복구 + 환불 처리 연계
 
 부가 작업(알림, 로그)은 트랜잭션 밖에서 처리.
+
+---
+
+## 8. API 문서화 전환 시점
+
+> 🕐 **적용 시점: 핵심 비즈니스 로직 3개 완성 후**
+
+**현재: Swagger (springdoc-openapi)**
+- 구현 중 빠른 API 확인용
+- 어노테이션 기반으로 자동 생성
+
+**전환 시점: 아래 3개 완성 후**
+- `InventoryService` (재고 상태 전이)
+- `OrderService` (주문 생성 → 결제)
+- `PaymentService` (Mock 결제 처리)
+
+**전환 후: Testcontainers + data.sql + Spring REST Docs**
+- Testcontainers: 실제 MySQL 환경에서 격리된 테스트
+- data.sql: 테스트용 최소 더미 데이터 (회원 1명, 상품 1개 등)
+- Spring REST Docs: 테스트 코드 기반 API 문서 자동 생성
+- 전환 시 Swagger 의존성 제거 + REST Docs 추가만 하면 됨
