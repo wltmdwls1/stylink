@@ -307,3 +307,19 @@ RESERVED_BY_ORDER, RELEASED_BY_BATCH_EXPIRED 같이 Enum으로 정의하면 잘�
 id는 DB 내부 식별용 PK로 외부에 노출하면 총 주문 건수나 증가 패턴이 유추될 수 있습니다.
 order_number는 고객에게 노출되는 주문번호로 ORD+날짜+시퀀스 형식(예: ORD2024123100001)으로 생성합니다.
 내부 식별자와 외부 노출 식별자를 분리하는 것이 보안과 가독성 측면에서 올바른 설계입니다.
+
+---
+
+**Q. 상태 전이 규칙을 어떻게 코드로 보장했나요?**
+
+단순히 status 필드를 직접 변경하지 않고, Entity에 상태 전이 메서드를 두어 전이 규칙을 강제했습니다.
+```java
+public void pay() {
+    if (this.status != OrderStatus.PENDING) {
+        throw new BusinessException(ErrorCode.INVALID_ORDER_STATUS);
+    }
+    this.status = OrderStatus.PAID;
+}
+```
+잘못된 전이 시도 시 런타임에서 즉시 차단되며, 상태 다이어그램으로 설계한 전이 규칙이 코드로 그대로 증명됩니다.
+Service에서 order.pay() 한 줄로 호출하면 전이 규칙 검증과 상태 변경이 Entity 안에서 캡슐화되어 처리됩니다.
