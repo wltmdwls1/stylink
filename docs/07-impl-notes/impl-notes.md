@@ -11,10 +11,10 @@
 
 ```java
 // ❌ 금지
-order.setStatus(OrderStatus.PAID);
+// order.setStatus(OrderStatus.PAID);
 
 // ✅ 올바른 방식
-order.pay();
+// order.pay();
 ```
 
 각 메서드에서 현재 상태 검증 후 전이. 잘못된 전이 시 BusinessException 던질 것.
@@ -67,11 +67,13 @@ phone → AES256 복호화 → 원문 반환
 Inventory.reserve() 호출 시 동시 요청이 들어오면 `OptimisticLockException` 발생.
 
 ```java
+/*
 try {
     inventory.reserve();
 } catch (OptimisticLockException e) {
     throw new BusinessException(ErrorCode.INVENTORY_NOT_AVAILABLE);
-}
+}*/
+
 ```
 
 - Service 레이어에서 catch 후 사용자 친화적 메시지로 변환
@@ -84,6 +86,7 @@ try {
 Inventory 상태 변경 시 반드시 InventoryLog도 함께 기록할 것.
 
 ```java
+/*
 inventory.reserve();
 inventoryLogRepository.save(new InventoryLog(
     inventory.getId(),
@@ -91,7 +94,8 @@ inventoryLogRepository.save(new InventoryLog(
     InventoryStatus.RESERVED,
     InventoryChangeReason.RESERVED_BY_ORDER,
     "주문번호: " + order.getOrderNumber()  // description
-));
+));*/
+
 ```
 
 - InventoryService 내부에서 상태 변경과 로그 기록을 항상 함께 처리
