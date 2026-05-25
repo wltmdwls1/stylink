@@ -20,6 +20,10 @@ public class InboundApiLog extends BaseLogEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 연관 주문 ID
+    @Column(name = "order_id")
+    private Long orderId;
+
     // 호출 출처 시스템 (DELIVERY, PG 등)
     @Column(name = "api_source", nullable = false, length = 30)
     private String apiSource;

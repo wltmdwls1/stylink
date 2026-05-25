@@ -23,6 +23,10 @@ public class Order extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 고객 노출용 주문번호 (ORD+날짜8자리+시퀀스5자리)
+    @Column(name = "order_number", nullable = false, unique = true, length = 16)
+    private String orderNumber;
+
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 

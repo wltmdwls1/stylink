@@ -1,6 +1,7 @@
 package com.stylink.domain.entity;
 
 import com.stylink.domain.entity.base.BaseLogEntity;
+import com.stylink.domain.enums.InventoryChangeReason;
 import com.stylink.domain.enums.InventoryStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -31,7 +32,12 @@ public class InventoryLog extends BaseLogEntity {
     @Column(name = "new_status", nullable = false, length = 20)
     private InventoryStatus newStatus;
 
-    // 변경 사유 (주문번호, 예약번호, 배치 만료 등)
-    @Column(name = "reason", length = 255)
-    private String reason;
+    // 이벤트 타입 Enum (필수)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reason", nullable = false, length = 30)
+    private InventoryChangeReason reason;
+
+    // 추가 맥락 (자유텍스트, 선택)
+    @Column(name = "description", length = 255)
+    private String description;
 }

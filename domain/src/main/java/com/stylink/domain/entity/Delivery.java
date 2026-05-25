@@ -28,6 +28,15 @@ public class Delivery extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private DeliveryStatus status;
 
+    @Column(name = "zip_code", nullable = false, length = 10)
+    private String zipCode;
+
+    @Column(name = "address", nullable = false, length = 255)
+    private String address;
+
+    @Column(name = "address_detail", length = 100)
+    private String addressDetail;
+
     // 운송장 번호 (Mock)
     @Column(name = "tracking_number", length = 100)
     private String trackingNumber;
