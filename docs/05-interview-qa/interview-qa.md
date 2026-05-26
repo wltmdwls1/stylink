@@ -5,6 +5,55 @@
 
 ---
 
+## 인프라 셋업
+
+---
+
+**Q. GlobalExceptionHandler를 왜 common 모듈에 뒀나요?**
+
+fo-api와 bo-api 양쪽 모두 동일한 예외 응답 형식이 필요합니다.
+두 Application 클래스 모두 `scanBasePackages = {"com.stylink"}`으로 설정되어 있어
+common에 하나만 두면 양쪽에 자동 적용됩니다.
+각 API 모듈에 중복으로 두면 나중에 메시지나 형식을 바꿀 때 두 곳을 모두 수정해야 하는 문제가 생깁니다.
+
+---
+
+**Q. AuthenticationEntryPoint와 GlobalExceptionHandler의 차이는요?**
+
+Spring Security 필터 체인은 DispatcherServlet보다 앞에서 동작합니다.
+인증 실패(토큰 없음)나 권한 없음은 Security 필터 단계에서 차단되어 DispatcherServlet까지 도달하지 못합니다.
+GlobalExceptionHandler(`@RestControllerAdvice`)는 DispatcherServlet 내부에서만 동작하므로 Security 예외를 잡을 수 없습니다.
+그래서 Security 예외는 `AuthenticationEntryPoint`(401)와 `AccessDeniedHandler`(403)에서 별도로 처리해야 합니다.
+
+---
+
+**Q. JwtProvider는 common에, JwtAuthenticationFilter는 각 API 모듈에 분리한 이유는요?**
+
+JwtProvider는 토큰 생성/파싱/검증만 담당하는 순수 유틸리티입니다.
+DB 조회나 모듈별 로직이 없어 fo-api/bo-api 양쪽에서 재사용할 수 있으므로 common에 뒀습니다.
+JwtAuthenticationFilter는 Spring Security의 필터 체인에 등록되는 구성요소로, spring-boot-starter-security가 fo-api/bo-api에만 있어 common에 둘 수 없습니다.
+이 분리로 jjwt 라이브러리 의존성을 common에만 두고 API 모듈은 JwtProvider의 메서드만 호출하면 됩니다.
+
+---
+
+**Q. JWT secret을 왜 환경변수로 관리했나요?**
+
+secret이 코드에 하드코딩되면 GitHub에 올라갔을 때 누구나 볼 수 있어 토큰 위조가 가능해집니다.
+환경변수(`${JWT_SECRET}`)로 관리하면 코드와 비밀값을 분리할 수 있고,
+로컬/운영 환경별로 다른 secret을 사용할 수 있어 보안 관리가 용이합니다.
+실무에서는 AWS Secrets Manager, Vault 같은 비밀 관리 서비스를 사용합니다.
+
+---
+
+**Q. logback.xml이 아닌 logback-spring.xml을 쓴 이유는요?**
+
+logback.xml은 JVM이 직접 로드하는 파일이라 Spring의 프로파일 정보를 알 수 없습니다.
+logback-spring.xml은 Spring Boot가 로드하므로 `<springProfile name="prod">` 태그로
+로컬 환경(콘솔 출력)과 운영 환경(파일 롤링)을 분기할 수 있습니다.
+운영 환경에서 파일 롤링(날짜별 분리, 30일 보관)을 위해 logback-spring.xml을 선택했습니다.
+
+---
+
 ## 서비스 아키텍처
 
 ---

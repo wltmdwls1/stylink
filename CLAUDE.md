@@ -145,9 +145,15 @@ batch   ──┘         │
 - [x] 공통 코드 (ApiResponse, ErrorCode, BusinessException, BaseEntity, BaseLogEntity, Auditing)
 - [x] JPA Entity 구현 (Enum 9종, Entity 20종)
 - [x] DB 연결 확인 (MySQL, ${DB_PASSWORD} 환경변수 방식)
-- [ ] DDL 작성 + 테이블 생성 ← **다음 할 일**
-- [ ] external-mock 구현체
-- [ ] 핵심 비즈니스 로직 구현 (사용자 담당)
+- [x] DDL 작성 + 테이블 생성
+- [x] GlobalExceptionHandler (common 모듈, BusinessException/@Valid/404/405/500 처리)
+- [x] Security 기본 설정 (Spring Security + STATELESS + AuthenticationEntryPoint/AccessDeniedHandler)
+- [x] Swagger (springdoc-openapi 2.5.0, fo-api/bo-api 각각)
+- [x] JWT 틀 (JwtProvider in common, JwtAuthenticationFilter in fo-api/bo-api)
+- [x] Logback 로깅 설정 (logback-spring.xml, 환경별 콘솔/파일 분리)
+- [x] 서버 정상 기동 및 동작 확인 완료
+- [ ] external-mock 구현체 (비즈니스 로직 구현 시 병행)
+- [ ] 핵심 비즈니스 로직 구현 (사용자 담당) ← **다음 할 일**
 - [ ] API 명세서 (Swagger 병행)
 - [ ] 테스트 시나리오 정의서
 
@@ -184,4 +190,7 @@ batch   ──┘         │
 - [x] 공통 코드 완료 (ApiResponse, ErrorCode, BusinessException, BaseEntity, BaseLogEntity)
 - [x] JPA Entity 완료 (Enum 9종, Entity 20종)
 - [x] DB 연결 확인 완료 (MySQL, ${DB_PASSWORD} 환경변수 방식)
-- [ ] DDL 작성 + 테이블 생성 ← **다음 할 일**
+- [x] DDL 작성 + 테이블 생성 완료
+- [x] 인프라 셋업 완료 (GlobalExceptionHandler / Security / Swagger / JWT / Logback)
+- [x] 서버 정상 기동 및 동작 확인 완료
+- [ ] 핵심 비즈니스 로직 구현 ← **다음 할 일**
