@@ -100,6 +100,27 @@ SecurityConfig:
 
 ---
 
+## [인프라] 5. Logback 로깅 설정
+
+**목적:** 환경별(local/prod) 로그 출력 방식 분리. 운영 환경에서 날짜별 파일로 저장해 오류 추적 가능하게.
+
+**구조:**
+```
+logback-spring.xml
+    → !prod (local/기본): ConsoleAppender → 콘솔 출력 (DEBUG 레벨)
+    → prod:               RollingFileAppender → 파일 저장 (INFO 레벨)
+        └ logs/fo-api.%d{yyyy-MM-dd}.log, 30일 보관
+```
+
+**핵심 포인트:**
+- `logback-spring.xml` 파일명이어야 `<springProfile>` 태그 사용 가능 (`logback.xml`은 Spring 프로파일 인식 불가)
+- `springProfile name="!prod"` → prod 외 모든 환경(local, 프로파일 없음 포함) 적용
+- prod 환경 활성화: `-Dspring.profiles.active=prod` 또는 환경변수 `SPRING_PROFILES_ACTIVE=prod`
+- `application.yml`의 `logging.level` 설정은 logback-spring.xml과 함께 동작 (레벨은 yml, 출력 방식은 xml)
+- RequestLoggingFilter는 미구현 → 비즈니스 로직 구현 시 서비스 레이어에서 직접 `log.info()`로 남길 것
+
+---
+
 # 구현 전 체크리스트
 
 > 각 도메인 구현 시작 전 반드시 읽고 들어갈 것.
