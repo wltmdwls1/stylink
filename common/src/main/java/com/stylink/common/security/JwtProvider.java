@@ -33,8 +33,17 @@ public class JwtProvider {
                 .compact();
     }
 
-    // 토큰에서 Claims(subject, role 등) 추출
-    public Claims parseToken(String token) {
+    // memberId 추출 (subject)
+    public String getMemberId(String token) {
+        return parseToken(token).getSubject();
+    }
+
+    // role 추출
+    public String getRole(String token) {
+        return parseToken(token).get("role", String.class);
+    }
+
+    private Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()

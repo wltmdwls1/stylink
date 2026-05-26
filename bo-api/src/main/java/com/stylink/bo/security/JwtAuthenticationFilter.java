@@ -1,7 +1,6 @@
 package com.stylink.bo.security;
 
 import com.stylink.common.security.JwtProvider;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,13 +30,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
 
         if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) {
-            Claims claims = jwtProvider.parseToken(token);
+            String memberId = jwtProvider.getMemberId(token);
+            String role = jwtProvider.getRole(token);
 
             // 로그인 구현 시 UserDetailsService 연동으로 교체
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    claims.getSubject(),
+                    memberId,
                     null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + claims.get("role", String.class)))
+                    List.of(new SimpleGrantedAuthority("ROLE_" + role))
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
