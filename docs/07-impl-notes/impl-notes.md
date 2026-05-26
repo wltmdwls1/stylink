@@ -69,6 +69,37 @@ SwaggerConfig → OpenAPI 빈 등록
 
 ---
 
+## [인프라] 4. JWT 틀
+
+**목적:** 로그인 구현 시 바로 붙일 수 있는 토큰 생성/파싱/검증 뼈대. 로그인 로직 자체는 사용자가 직접 구현.
+
+**메서드 연결 구조:**
+```
+로그인 성공 시 (사용자 구현):
+    JwtProvider.generateToken(memberId, role) → JWT 문자열 반환
+
+요청 시:
+    JwtAuthenticationFilter.doFilterInternal()
+        → extractToken(): Authorization 헤더에서 "Bearer " 제거 → 토큰 추출
+        → JwtProvider.validateToken(token): 서명 + 만료 검증
+        → JwtProvider.parseToken(token): Claims 반환 (subject=memberId, role)
+        → UsernamePasswordAuthenticationToken 생성 → SecurityContextHolder 등록
+        → 로그인 구현 시 UserDetailsService 연동으로 교체 예정
+
+SecurityConfig:
+    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+    → 인증 필터 앞에 JWT 필터 삽입 → 토큰 있으면 먼저 SecurityContext 채움
+```
+
+**핵심 포인트:**
+- `JwtProvider`는 common 모듈에 배치 → fo-api/bo-api 양쪽에서 재사용, DB 조회 없이 순수 토큰 처리만 담당
+- `JwtAuthenticationFilter`는 각 API 모듈에 배치 → spring-security 의존성이 API 모듈에 있기 때문
+- secret key는 환경변수 `${JWT_SECRET}`으로 관리 → 코드에 하드코딩 금지
+- jjwt 0.12.x API: `Jwts.parser().verifyWith().build().parseSignedClaims()` (이전 버전과 다름)
+- `validateToken()`에서 `JwtException`을 잡아 false 반환 → 필터에서 토큰 없는 요청처럼 처리됨
+
+---
+
 # 구현 전 체크리스트
 
 > 각 도메인 구현 시작 전 반드시 읽고 들어갈 것.
