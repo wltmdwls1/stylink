@@ -152,8 +152,8 @@ batch   ──┘         │
 - [x] JWT 틀 (JwtProvider in common, JwtAuthenticationFilter in fo-api/bo-api)
 - [x] Logback 로깅 설정 (logback-spring.xml, 환경별 콘솔/파일 분리)
 - [x] 서버 정상 기동 및 동작 확인 완료
-- [ ] external-mock 구현체 (비즈니스 로직 구현 시 병행)
 - [ ] 핵심 비즈니스 로직 구현 (사용자 담당) ← **다음 할 일**
+- [ ] external-mock 구현체 (비즈니스 로직 구현 시 병행)
 - [ ] API 명세서 (Swagger 병행)
 - [ ] 테스트 시나리오 정의서
 
