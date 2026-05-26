@@ -48,6 +48,27 @@ HttpSecurity
 
 ---
 
+## [인프라] 3. Swagger
+
+**목적:** Controller/DTO 없이도 API 구조 확인 가능. 비즈니스 로직 구현 시 빠른 테스트 도구.
+
+**메서드 연결 구조:**
+```
+SwaggerConfig → OpenAPI 빈 등록
+    → springdoc이 @RestController 스캔
+    → /v3/api-docs 자동 생성
+    → /swagger-ui/index.html 에서 렌더링
+```
+
+**핵심 포인트:**
+- 2단계 SecurityConfig에서 `/swagger-ui/**`, `/v3/api-docs/**` 열어줬기 때문에 접속 가능 (순서 중요)
+- fo-api(8080), bo-api(8090) 각각 별도 SwaggerConfig → 서버별 제목/설명 다르게
+- springdoc 2.x는 Spring Boot 3.x 전용 (`springdoc-openapi-starter-webmvc-ui`)
+- 나중에 JWT 인증 붙으면 SwaggerConfig에 `SecurityScheme` 추가해야 토큰 넣고 테스트 가능
+- 접속 URL: fo-api → `http://localhost:8080/swagger-ui/index.html`, bo-api → `http://localhost:8090/swagger-ui/index.html`
+
+---
+
 # 구현 전 체크리스트
 
 > 각 도메인 구현 시작 전 반드시 읽고 들어갈 것.
