@@ -1,3 +1,31 @@
+# 인프라 셋업 노트
+
+> 각 인프라 구성 요소의 목적, 메서드 연결 구조, 핵심 포인트 정리.
+> 소스 재분석 시 빠르게 파악하기 위한 레퍼런스.
+
+---
+
+## [인프라] 1. GlobalExceptionHandler
+
+**목적:** 모든 예외 응답을 `ApiResponse.fail(message)` 형태로 통일. Controller까지 예외가 올라오면 여기서 잡아서 일관된 형식으로 내려줌.
+
+**메서드 연결 구조:**
+```
+throw new BusinessException(ErrorCode.XXX)
+    → handleBusinessException()
+        → e.getErrorCode().getHttpStatus()   // HTTP 상태 코드 결정
+        → e.getMessage()                      // ErrorCode 생성자에서 super(message) 연결됨
+        → ApiResponse.fail(message)           // 응답 포장
+```
+
+**핵심 포인트:**
+- `BusinessException`의 두 생성자 모두 `super(message)`로 연결 → 핸들러는 분기 없이 `e.getMessage()` 하나로 처리
+- `NoHandlerFoundException`은 yml 설정 없으면 핸들러에 안 잡힘 (`throw-exception-if-no-handler-found: true` 필수)
+- `warn` vs `error` 구분: 예측 가능한 예외(1~4번)는 warn, catch-all(5번)은 error + 스택트레이스
+- `common` 모듈에 배치한 이유: `scanBasePackages = {"com.stylink"}` 덕분에 fo-api/bo-api 양쪽에 자동 적용
+
+---
+
 # 구현 전 체크리스트
 
 > 각 도메인 구현 시작 전 반드시 읽고 들어갈 것.
