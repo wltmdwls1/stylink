@@ -26,6 +26,28 @@ throw new BusinessException(ErrorCode.XXX)
 
 ---
 
+## [인프라] 2. Security 기본 설정
+
+**목적:** JWT 기반 Stateless 인증 구조의 뼈대. 지금은 Swagger 열어두고 나머지 막는 최소 설정. JWT 필터 자리만 예약해둠.
+
+**메서드 연결 구조:**
+```
+HttpSecurity
+    → csrf disable             // REST API는 CSRF 불필요 (쿠키 세션 없음)
+    → STATELESS                // 세션 안 씀 → JWT로 대체
+    → permitAll: Swagger 경로  // 3단계에서 접속하려면 미리 열어둬야 함
+    → anyRequest authenticated // 나머지 전부 차단
+    → [JWT 필터 자리]           // 4단계에서 addFilterBefore로 연결
+```
+
+**핵심 포인트:**
+- `SessionCreationPolicy.STATELESS` 설정 안 하면 Security가 세션 만들려 함 → JWT 인증이 무의미해짐
+- Swagger 경로를 여기서 미리 열어야 3단계에서 바로 접속 가능
+- JWT 필터는 4단계에서 `addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)`로 연결
+- fo-api / bo-api 각각 별도 SecurityConfig → 나중에 권한 정책이 달라질 수 있으므로 분리 유지
+
+---
+
 # 구현 전 체크리스트
 
 > 각 도메인 구현 시작 전 반드시 읽고 들어갈 것.
