@@ -24,14 +24,14 @@
 ### 취소 제한 정책
 | 도메인 | 취소 불가 기준 | 이후 처리 |
 |--------|--------------|----------|
-| 주문(Order) | `SHIPPED` 이후 | 반품만 가능 |
+| 주문(Order) | `IN_DELIVERY` 이후 | 반품만 가능 |
 | 예약(Reservation) | `IN_PROGRESS` 이후 | 취소 불가 |
-| 결제(Payment) | `SHIPPED` 이전 → 취소 / 이후 → 환불 | CANCEL / REFUND 구분 |
+| 결제(Payment) | `IN_DELIVERY` 이전 → 취소 / 이후 → 환불 | CANCEL / REFUND 구분 |
 
 ### 기타
 - 물류센터는 단일 센터로 가정
 - 결제이탈(ABANDONED) 상태 미사용 → 결제실패(FAILED)로만 처리
-- **SHIPPED** = 1차 온라인 주문의 배송 시작 (Order/Delivery 상태)
+- **IN_DELIVERY** = 1차 온라인 주문의 배송 시작 (Order/Delivery 상태)
 - **IN_TRANSIT** = 2차 출장 서비스의 스타일리스트 재고 이동 (Inventory 상태)
 
 ---
@@ -81,7 +81,7 @@ AVAILABLE ──────────► RESERVED ─────────
 
 ```
             결제요청             준비완료                출고              배송완료
-PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► SHIPPED ──────────► DELIVERED
+PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► IN_DELIVERY ──────────► DELIVERED
    │                  │                      │                                           │
 결제실패              취소                   취소                                      반품요청
    ▼                  ▼                      ▼                                           ▼
@@ -97,17 +97,17 @@ FAILED            CANCELLED             CANCELLED                               
 | `PENDING` | 결제대기 | 주문 생성 완료, 결제 대기 중 |
 | `PAID` | 결제완료 | 결제 완료 |
 | `IN_PREPARATION` | 상품준비중 | 상품 준비 중 |
-| `SHIPPED` | 배송중 | 배송 시작 → 이후 취소 불가 |
+| `IN_DELIVERY` | 배송중 | 배송 시작 → 이후 취소 불가 |
 | `DELIVERED` | 배송완료 | 배송 완료 |
 | `FAILED` | 결제실패 | 결제 실패 |
-| `CANCELLED` | 주문취소 | 주문 취소 (SHIPPED 이전만 가능) |
+| `CANCELLED` | 주문취소 | 주문 취소 (IN_DELIVERY 이전만 가능) |
 | `RETURN_REQUESTED` | 반품요청 | 배송 완료 후 반품 요청 |
 | `RETURNED` | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
 
 **정책**
 - PENDING → 결제 실패 시 재고 RESERVED 해제 (AVAILABLE 복구)
 - PAID, IN_PREPARATION 상태에서만 취소 가능
-- **SHIPPED 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
+- **IN_DELIVERY 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
 - 반품 완료 시 → 재고 AVAILABLE 복구 + 환불(REFUND) 처리
 
 ---
@@ -198,10 +198,10 @@ PENDING ──결제요청──► SUCCESS
    ▼
 FAILED
 
-[SHIPPED 이전 - 취소]
+[IN_DELIVERY 이전 - 취소]
 SUCCESS ──취소요청──► CANCEL_REQUESTED ──취소완료──► CANCELLED
 
-[SHIPPED 이후 - 환불]
+[IN_DELIVERY 이후 - 환불]
 SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──► REFUNDED
 ```
 
@@ -210,14 +210,14 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 | `PENDING` | 결제대기 | 결제 요청 중 |
 | `SUCCESS` | 결제완료 | 결제 승인 완료 |
 | `FAILED` | 결제실패 | 결제 실패 → 주문 FAILED + 재고 RESERVED 해제 |
-| `CANCEL_REQUESTED` | 취소요청 | 취소 요청 중 (SHIPPED 이전) |
+| `CANCEL_REQUESTED` | 취소요청 | 취소 요청 중 (IN_DELIVERY 이전) |
 | `CANCELLED` | 취소완료 | 결제 취소 완료 |
-| `REFUND_REQUESTED` | 환불요청 | 환불 요청 중 (SHIPPED 이후 반품) |
+| `REFUND_REQUESTED` | 환불요청 | 환불 요청 중 (IN_DELIVERY 이후 반품) |
 | `REFUNDED` | 환불완료 | 환불 완료 |
 
 **정책 (Mock 기준)**
-- **SHIPPED 이전** → 취소(CANCEL) 처리
-- **SHIPPED 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
+- **IN_DELIVERY 이전** → 취소(CANCEL) 처리
+- **IN_DELIVERY 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
 - 결제 실패 시 → 주문 FAILED + 재고 RESERVED 해제 (전체 롤백)
 
 ---
@@ -227,7 +227,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 > Mock 기반 처리 / 1차(온라인) 중심
 
 ```
-READY ──배송시작──► SHIPPED ──완료──► DELIVERED
+READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
                                          │
                                       반품요청
                                          ▼
@@ -237,7 +237,7 @@ READY ──배송시작──► SHIPPED ──완료──► DELIVERED
 | 상태 | 한글명 | 설명 |
 |------|--------|------|
 | `READY` | 배송준비 | 배송 준비 중 |
-| `SHIPPED` | 배송중 | 배송 시작 |
+| `IN_DELIVERY` | 배송중 | 배송 시작 |
 | `DELIVERED` | 배송완료 | 배송 완료 |
 | `RETURN_REQUESTED` | 반품요청 | 반품 요청 |
 | `RETURNED` | 반품완료 | 반품 완료 → Order RETURNED + 재고 AVAILABLE 복구 + 환불 처리 연계 |
@@ -253,8 +253,8 @@ READY ──배송시작──► SHIPPED ──완료──► DELIVERED
 | 도메인 | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
 |--------|-------------|----------|----------|
 | 재고 | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
-| 주문 | PENDING → PAID → IN_PREPARATION → SHIPPED → DELIVERED | SHIPPED 이후 취소 불가 | 1차 |
+| 주문 | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
 | 예약 | PENDING → CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원 | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
-| 결제 | PENDING → SUCCESS → CANCELLED / REFUNDED | SHIPPED 기준 취소/환불 구분 | 1차 (Mock) |
-| 배송 | READY → SHIPPED → DELIVERED → RETURNED | - | 1차 (Mock) |
+| 결제 | PENDING → SUCCESS → CANCELLED / REFUNDED | IN_DELIVERY 기준 취소/환불 구분 | 1차 (Mock) |
+| 배송 | READY → IN_DELIVERY → DELIVERED → RETURNED | - | 1차 (Mock) |
