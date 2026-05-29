@@ -252,7 +252,8 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 
 | 도메인 | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
 |-------|-------------|----------|----------|
-| 재고 | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
+| 재고 (1차) | AVAILABLE → RESERVED → SOLD | 반품 시 AVAILABLE 복구 | 1차 |
+| 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 2차 |
 | 주문 | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
 | 예약 | PENDING → CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원 | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
