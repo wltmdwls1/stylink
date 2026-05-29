@@ -22,11 +22,11 @@
   ```
 
 ### 취소 제한 정책
-| 도메인 | 취소 불가 기준 | 이후 처리 |
-|--------|--------------|----------|
-| 주문(Order) | `IN_DELIVERY` 이후 | 반품만 가능 |
+| 도메인             | 취소 불가 기준 | 이후 처리 |
+|-----------------|--------------|----------|
+| 주문(Order)       | `IN_DELIVERY` 이후 | 반품만 가능 |
 | 예약(Reservation) | `IN_PROGRESS` 이후 | 취소 불가 |
-| 결제(Payment) | `IN_DELIVERY` 이전 → 취소 / 이후 → 환불 | CANCEL / REFUND 구분 |
+| 결제(Payment)     | `IN_DELIVERY` 이전 → 취소 / 이후 → 환불 | CANCEL / REFUND 구분 |
 
 ### 기타
 - 물류센터는 단일 센터로 가정
@@ -43,7 +43,7 @@
 
 ### 1차 (온라인 주문)
 ```
-            주문발생                  배송완료              반품완료
+            주문발생                 배송완료            반품완료
 AVAILABLE ──────────► RESERVED ──────────────► SOLD ──────────► AVAILABLE
     ▲                     │
     │             취소 / 만료 / 결제실패
@@ -52,20 +52,20 @@ AVAILABLE ──────────► RESERVED ─────────
 
 ### 2차 (O2O 출장 서비스)
 ```
-            예약확정            스타일리스트 이동         현장판매완료           반품완료
+            예약확정              스타일리스트 이동              현장판매완료         반품완료
 AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD ──────────► AVAILABLE
     ▲                     │                           │
-    │                    취소                  예약취소(이동 후)   
+    │                    취소                   예약취소(이동 후)   
     └─────────────────────┘                           ▼
                                                   AVAILABLE
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `AVAILABLE` | 판매가능 | 주문/예약 가능한 정상 재고 |
-| `RESERVED` | 예약됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
+| 상태           | 한글명 | 설명 |
+|--------------|--------|------|
+| `AVAILABLE`  | 판매가능 | 주문/예약 가능한 정상 재고 |
+| `RESERVED`   | 예약됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
 | `IN_TRANSIT` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
-| `SOLD` | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
+| `SOLD`       | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
 
 **정책**
 - RESERVED 상태 일정 시간 초과 시 → 자동으로 AVAILABLE 복구 (배치 처리) — 1차/2차 공통
@@ -80,29 +80,29 @@ AVAILABLE ──────────► RESERVED ─────────
 > 1차 온라인 쇼핑몰 중심
 
 ```
-            결제요청             준비완료                출고              배송완료
+           결제요청           준비완료                       출고                  배송완료
 PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► IN_DELIVERY ──────────► DELIVERED
-   │                  │                      │                                           │
-결제실패              취소                   취소                                      반품요청
-   ▼                  ▼                      ▼                                           ▼
-FAILED            CANCELLED             CANCELLED                                 RETURN_REQUESTED
-                                                                                         │
-                                                                                      반품완료
-                                                                                         ▼
-                                                                                      RETURNED
+   │                  │                      │                                               │
+결제실패              취소                    취소                                            반품요청
+   ▼                  ▼                      ▼                                               ▼
+ FAILED           CANCELLED              CANCELLED                                    RETURN_REQUESTED
+                                                                                             │
+                                                                                           반품완료
+                                                                                             ▼
+                                                                                          RETURNED
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `PENDING` | 결제대기 | 주문 생성 완료, 결제 대기 중 |
-| `PAID` | 결제완료 | 결제 완료 |
-| `IN_PREPARATION` | 상품준비중 | 상품 준비 중 |
-| `IN_DELIVERY` | 배송중 | 배송 시작 → 이후 취소 불가 |
-| `DELIVERED` | 배송완료 | 배송 완료 |
-| `FAILED` | 결제실패 | 결제 실패 |
-| `CANCELLED` | 주문취소 | 주문 취소 (IN_DELIVERY 이전만 가능) |
+| 상태                 | 한글명 | 설명 |
+|--------------------|--------|------|
+| `PENDING`          | 결제대기 | 주문 생성 완료, 결제 대기 중 |
+| `PAID`             | 결제완료 | 결제 완료 |
+| `IN_PREPARATION`   | 상품준비중 | 상품 준비 중 |
+| `IN_DELIVERY`      | 배송중 | 배송 시작 → 이후 취소 불가 |
+| `DELIVERED`        | 배송완료 | 배송 완료 |
+| `FAILED`           | 결제실패 | 결제 실패 |
+| `CANCELLED`        | 주문취소 | 주문 취소 (IN_DELIVERY 이전만 가능) |
 | `RETURN_REQUESTED` | 반품요청 | 배송 완료 후 반품 요청 |
-| `RETURNED` | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
+| `RETURNED`         | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
 
 **정책**
 - PENDING → 결제 실패 시 재고 RESERVED 해제 (AVAILABLE 복구)
@@ -117,21 +117,21 @@ FAILED            CANCELLED             CANCELLED                               
 > 2차 O2O 출장 스타일링 서비스
 
 ```
-            확정                        출장시작                완료
+            확정                     출장시작                       완료
 PENDING ──────────► CONFIRMED ──────────────────► IN_PROGRESS ──────────► COMPLETED
    │                    │                               │
-  취소                 취소                           (취소 불가)
+  취소                  취소                           (취소 불가)
    ▼                    ▼
 CANCELLED           CANCELLED
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `PENDING` | 예약신청 | 고객 예약 신청 완료, 확정 대기 |
-| `CONFIRMED` | 예약확정 | 스타일리스트 배정 + 날짜 확정, 재고 RESERVED 처리 |
+| 상태            | 한글명 | 설명 |
+|---------------|--------|------|
+| `PENDING`     | 예약신청 | 고객 예약 신청 완료, 확정 대기 |
+| `CONFIRMED`   | 예약확정 | 스타일리스트 배정 + 날짜 확정, 재고 RESERVED 처리 |
 | `IN_PROGRESS` | 진행중 | 스타일리스트 출장 시작 → 재고 IN_TRANSIT 처리, 이후 취소 불가 |
-| `COMPLETED` | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
-| `CANCELLED` | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
+| `COMPLETED`   | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
+| `CANCELLED`   | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
 
 **정책**
 - CONFIRMED 시점 → 스타일리스트 배정 완료 + 재고 RESERVED 처리
@@ -154,9 +154,9 @@ CANCELLED           CANCELLED
 ACTIVE ──탈퇴──► WITHDRAWN
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `ACTIVE` | 정상 | 정상 이용 가능 |
+| 상태          | 한글명 | 설명 |
+|-------------|--------|------|
+| `ACTIVE`    | 정상 | 정상 이용 가능 |
 | `WITHDRAWN` | 탈퇴 | 탈퇴 처리 |
 
 ### 4-2. 인증 상태 (authStatus)
@@ -164,20 +164,20 @@ ACTIVE ──탈퇴──► WITHDRAWN
 UNVERIFIED ──본인인증(Mock)──► VERIFIED
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
+| 상태           | 한글명 | 설명 |
+|--------------|--------|------|
 | `UNVERIFIED` | 인증대기 | 가입 완료, 본인인증 미완료 |
-| `VERIFIED` | 인증완료 | 전화번호 기반 본인인증 완료 (Mock 처리) |
+| `VERIFIED`   | 인증완료 | 전화번호 기반 본인인증 완료 (Mock 처리) |
 
 ### 4-3. 회원 등급 (grade)
 ```
 NORMAL ──누적구매 100만원 이상──► VIP
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `NORMAL` | 일반회원 | 기본 등급 |
-| `VIP` | VIP | 누적 구매 100만원 이상 달성 |
+| 상태         | 한글명 | 설명 |
+|------------|--------|------|
+| `NORMAL`   | 일반회원 | 기본 등급 |
+| `VIP`      | VIP | 누적 구매 100만원 이상 달성 |
 
 **정책**
 - 본인인증은 전화번호 기반 Mock 처리
@@ -205,15 +205,15 @@ SUCCESS ──취소요청──► CANCEL_REQUESTED ──취소완료──►
 SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──► REFUNDED
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `PENDING` | 결제대기 | 결제 요청 중 |
-| `SUCCESS` | 결제완료 | 결제 승인 완료 |
-| `FAILED` | 결제실패 | 결제 실패 → 주문 FAILED + 재고 RESERVED 해제 |
+| 상태                 | 한글명 | 설명 |
+|--------------------|--------|------|
+| `PENDING`          | 결제대기 | 결제 요청 중 |
+| `SUCCESS`          | 결제완료 | 결제 승인 완료 |
+| `FAILED`           | 결제실패 | 결제 실패 → 주문 FAILED + 재고 RESERVED 해제 |
 | `CANCEL_REQUESTED` | 취소요청 | 취소 요청 중 (IN_DELIVERY 이전) |
-| `CANCELLED` | 취소완료 | 결제 취소 완료 |
+| `CANCELLED`        | 취소완료 | 결제 취소 완료 |
 | `REFUND_REQUESTED` | 환불요청 | 환불 요청 중 (IN_DELIVERY 이후 반품) |
-| `REFUNDED` | 환불완료 | 환불 완료 |
+| `REFUNDED`         | 환불완료 | 환불 완료 |
 
 **정책 (Mock 기준)**
 - **IN_DELIVERY 이전** → 취소(CANCEL) 처리
@@ -228,19 +228,19 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 
 ```
 READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
-                                         │
-                                      반품요청
-                                         ▼
+                                          │
+                                       반품요청
+                                          ▼
                                   RETURN_REQUESTED ──반품완료──► RETURNED
 ```
 
-| 상태 | 한글명 | 설명 |
-|------|--------|------|
-| `READY` | 배송준비 | 배송 준비 중 |
-| `IN_DELIVERY` | 배송중 | 배송 시작 |
-| `DELIVERED` | 배송완료 | 배송 완료 |
-| `RETURN_REQUESTED` | 반품요청 | 반품 요청 |
-| `RETURNED` | 반품완료 | 반품 완료 → Order RETURNED + 재고 AVAILABLE 복구 + 환불 처리 연계 |
+| 상태                  | 한글명 | 설명 |
+|---------------------|--------|------|
+| `READY`             | 배송준비 | 배송 준비 중 |
+| `IN_DELIVERY`       | 배송중 | 배송 시작 |
+| `DELIVERED`         | 배송완료 | 배송 완료 |
+| `RETURN_REQUESTED`  | 반품요청 | 반품 요청 |
+| `RETURNED`          | 반품완료 | 반품 완료 → Order RETURNED + 재고 AVAILABLE 복구 + 환불 처리 연계 |
 
 **정책 (Mock 기준)**
 - 배송 상태는 Mock으로 순차 변경 시뮬레이션
@@ -251,7 +251,7 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 ## 상태 전이 요약
 
 | 도메인 | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
-|--------|-------------|----------|----------|
+|-------|-------------|----------|----------|
 | 재고 | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 1차/2차 공통 |
 | 주문 | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
 | 예약 | PENDING → CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
