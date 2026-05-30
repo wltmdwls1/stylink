@@ -148,7 +148,7 @@ createOrder():
   3. OrderHistory 기록
 
 cancelOrder():
-  1. Order 상태 검증 (SHIPPED 이후면 취소 불가 → BusinessException)
+  1. Order 상태 검증 (IN_DELIVERY 이후면 취소 불가 → BusinessException)
   2. inventoryService.release() 호출 (사유: ORDER_CANCELLED)
   3. Order(CANCELLED) + OrderHistory 기록
 ```
@@ -166,7 +166,7 @@ cancelOrder():
 ---
 
 ### Step 6: DeliveryService + MockDeliveryGateway
-- `startShipping(orderId)` — Order SHIPPED + `inventoryService.sell()` (RESERVED→SOLD)
+- `startShipping(orderId)` — Order IN_DELIVERY + `inventoryService.sell()` (RESERVED→SOLD)
 - `completeDelivery(deliveryId)` — Order DELIVERED
 - 반품: RETURN_REQUESTED→RETURNED + `inventoryService.restore()` (SOLD→AVAILABLE)
 
@@ -184,7 +184,7 @@ cancelOrder():
 
 1. `InventoryService.transit()` 추가 — RESERVED→IN_TRANSIT + InventoryLog
 2. `ReservationService`:
-   - PENDING → CONFIRMED: 스타일리스트 배정 + `reserve()`
+   - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + `reserve()`
    - CONFIRMED → IN_PROGRESS: `transit()`
    - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 `release()`
 

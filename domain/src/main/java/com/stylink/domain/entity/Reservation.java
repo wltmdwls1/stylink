@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 /**
  * 예약 (2차 O2O 출장 스타일링)
- * CONFIRMED 시점: 스타일리스트 배정 + 날짜 확정 + 재고 RESERVED
+ * 고객이 가능 일정 선택 시 즉시 CONFIRMED — StylistSchedule BOOKED + 재고 RESERVED
  * IN_PROGRESS 시점: 재고 IN_TRANSIT (이후 취소 불가)
  */
 @Getter
@@ -27,8 +27,7 @@ public class Reservation extends BaseEntity {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
-    // CONFIRMED 시점에 배정됨 (nullable: PENDING 상태에서는 미배정)
-    @Column(name = "stylist_id")
+    @Column(name = "stylist_id", nullable = false)
     private Long stylistId;
 
     @Enumerated(EnumType.STRING)

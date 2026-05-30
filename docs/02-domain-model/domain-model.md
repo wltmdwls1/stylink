@@ -139,7 +139,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 **책임:** 주문 생성 및 상태 관리
 - 주문 단위의 전체 흐름 관리 (PENDING → DELIVERED)
 - 하나의 주문번호로 전체 진행 상황 추적
-- SHIPPED 이후 취소 불가
+- IN_DELIVERY 이후 취소 불가
 
 **주요 관계:**
 - `Member` 가 생성
@@ -159,7 +159,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 **주요 관계:**
 - `Order` 에 속함 (N:1)
 - `Product` 참조
-- `Inventory` HOLD/SOLD 처리 연동
+- `Inventory` RESERVED/SOLD 처리 연동
 
 ---
 
@@ -176,21 +176,21 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 
 ### Inventory (재고) ⭐ 핵심
 **책임:** 상품별 재고 수량 및 상태 관리
-- 단순 수량이 아닌 **상태 기반** 재고 관리 (AVAILABLE / HOLD / TRANSFER / SOLD)
-- 동시 주문 발생 시 HOLD 중복 방지 (동시성 제어)
+- 단순 수량이 아닌 **상태 기반** 재고 관리 (AVAILABLE / RESERVED / IN_TRANSIT / SOLD)
+- 동시 주문/예약 발생 시 RESERVED 중복 방지 (동시성 제어)
 - 물류센터 단일 가정
 
 **주요 관계:**
 - `Product` 와 연결
 - `InventoryLog` 로 변경 이력 관리
-- `OrderItem` HOLD/SOLD 연동
-- `Reservation` HOLD/TRANSFER 연동 (2차)
+- `OrderItem` RESERVED/SOLD 연동
+- `Reservation` RESERVED/IN_TRANSIT 연동 (2차)
 
 ---
 
 ### InventoryLog (재고 변경 이력)
 **책임:** 재고 상태 변경 이력 관리
-- AVAILABLE → HOLD → TRANSFER → SOLD 등 모든 상태 변경 기록
+- AVAILABLE → RESERVED → IN_TRANSIT → SOLD 등 모든 상태 변경 기록
 - 변경 사유, 관련 주문/예약 번호 포함
 - 재고 불일치 발생 시 추적 용도
 
@@ -259,7 +259,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - `Stylist` 배정
 - `StylistSchedule` 연결
 - `Wishlist` 기반 상품 목록 참조
-- `Inventory` HOLD/TRANSFER 처리
+- `Inventory` RESERVED/IN_TRANSIT 처리
 - `StylingSession` 으로 진행
 
 ---
@@ -317,7 +317,7 @@ Member ──── Wishlist ──────────────── Pr
 Member ──── Reservation ──── Stylist ──── StylistSchedule
                 │
                 ├──── Wishlist (찜 목록 참조)
-                ├──── Inventory (HOLD / TRANSFER)
+                ├──── Inventory (RESERVED / IN_TRANSIT)
                 └──── StylingSession ──── Order (현장 판매)
                                      └── Inventory (SOLD / AVAILABLE)
 ```

@@ -248,7 +248,7 @@ Product 1 ─── N OrderItem
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
 **주문 상태값:**
-`PENDING` / `PAID` / `IN_PREPARATION` / `SHIPPED` / `DELIVERED` / `FAILED` / `CANCELLED` / `RETURN_REQUESTED` / `RETURNED`
+`PENDING` / `PAID` / `IN_PREPARATION` / `IN_DELIVERY` / `DELIVERED` / `FAILED` / `CANCELLED` / `RETURN_REQUESTED` / `RETURNED`
 
 ---
 

@@ -13,7 +13,7 @@
 | Fetch 전략 | **ALL LAZY** | N+1 문제는 JPQL fetch join으로 명시적 제어 |
 | BaseEntity | **일반/로그 분리** | append-only 테이블에 불필요한 수정자 컬럼 제거 |
 | 상태값 | **Enum + 한글 설명** | `private final String description` 패턴 |
-| 낙관적 락 | **Inventory만 @Version** | 동시 HOLD 중복 방지 핵심 |
+| 낙관적 락 | **Inventory만 @Version** | 동시 RESERVED 중복 방지 핵심 |
 
 ---
 
@@ -607,12 +607,12 @@ public class Inventory extends BaseEntity {
 
     @Version
     @Column(nullable = false)
-    private Long version;                  // 낙관적 락 — 동시 HOLD 중복 방지
+    private Long version;                  // 낙관적 락 — 동시 RESERVED 중복 방지
 }
 ```
 
 **특이사항:**
-- `@Version` → JPA 낙관적 락, 동시에 HOLD 시도 시 하나만 성공
+- `@Version` → JPA 낙관적 락, 동시에 RESERVED 시도 시 하나만 성공
 - 동시성 제어 핵심 컬럼 — 절대 임의로 수정 금지
 
 ---
