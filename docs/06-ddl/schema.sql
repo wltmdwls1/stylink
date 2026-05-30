@@ -70,12 +70,15 @@ CREATE TABLE stylist
 (
     id                BIGINT       NOT NULL AUTO_INCREMENT,
     name              VARCHAR(50)  NOT NULL,
+    email             VARCHAR(100) NOT NULL COMMENT 'bo-api 로그인 ID (Admin과 별도 계정 체계)',
+    password          VARCHAR(255) NOT NULL COMMENT 'BCrypt 단방향 해시',
     phone             VARCHAR(255) NOT NULL COMMENT 'AES256(CBC/GCM) 암호화 — 복호화 가능, 화면 표시용',
     phone_hash        VARCHAR(64)  NOT NULL COMMENT 'SHA-256 해시 — 단방향, 중복체크/검색/인증용',
     profile_image_url VARCHAR(500) NULL,
     created_at        DATETIME(6)  NOT NULL,
     updated_at        DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uk_stylist_email (email),
     UNIQUE KEY uk_stylist_phone_hash (phone_hash)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
@@ -221,24 +224,55 @@ CREATE TABLE inventory_log
     CONSTRAINT fk_inventory_log_inventory FOREIGN KEY (inventory_id) REFERENCES inventory (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 16. reservation
-CREATE TABLE reservation
+-- 16. stylist_schedule
+CREATE TABLE stylist_schedule
 (
-    id           BIGINT       NOT NULL AUTO_INCREMENT,
-    member_id    BIGINT       NOT NULL,
-    stylist_id   BIGINT       NULL     COMMENT 'CONFIRMED 시점에 배정',
-    status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
-    scheduled_at DATETIME(6)  NULL     COMMENT 'CONFIRMED 시점에 확정',
-    address      VARCHAR(255) NULL,
-    created_at   DATETIME(6)  NOT NULL,
-    updated_at   DATETIME(6)  NOT NULL,
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    stylist_id   BIGINT      NOT NULL,
+    available_at DATETIME(6) NOT NULL,
+    is_booked    TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '예약 여부 — 낙관적 락으로 중복 예약 방지',
+    version      BIGINT      NOT NULL DEFAULT 0 COMMENT '낙관적 락',
+    created_at   DATETIME(6) NOT NULL,
+    updated_at   DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    KEY idx_reservation_member_id (member_id),
-    CONSTRAINT fk_reservation_member  FOREIGN KEY (member_id)  REFERENCES member (id),
-    CONSTRAINT fk_reservation_stylist FOREIGN KEY (stylist_id) REFERENCES stylist (id)
+    KEY idx_stylist_schedule_stylist_id (stylist_id),
+    CONSTRAINT fk_stylist_schedule_stylist FOREIGN KEY (stylist_id) REFERENCES stylist (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 17. payment
+-- 17. reservation
+CREATE TABLE reservation
+(
+    id                   BIGINT       NOT NULL AUTO_INCREMENT,
+    member_id            BIGINT       NOT NULL,
+    stylist_id           BIGINT       NOT NULL COMMENT '즉시 자동 확정 — PENDING 없음',
+    stylist_schedule_id  BIGINT       NOT NULL,
+    status               VARCHAR(20)  NOT NULL DEFAULT 'CONFIRMED',
+    scheduled_at         DATETIME(6)  NOT NULL,
+    address              VARCHAR(255) NULL,
+    created_at           DATETIME(6)  NOT NULL,
+    updated_at           DATETIME(6)  NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_reservation_member_id (member_id),
+    CONSTRAINT fk_reservation_member           FOREIGN KEY (member_id)           REFERENCES member (id),
+    CONSTRAINT fk_reservation_stylist          FOREIGN KEY (stylist_id)          REFERENCES stylist (id),
+    CONSTRAINT fk_reservation_stylist_schedule FOREIGN KEY (stylist_schedule_id) REFERENCES stylist_schedule (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- 18. styling_session
+CREATE TABLE styling_session
+(
+    id             BIGINT      NOT NULL AUTO_INCREMENT,
+    reservation_id BIGINT      NOT NULL,
+    started_at     DATETIME(6) NULL,
+    completed_at   DATETIME(6) NULL,
+    created_at     DATETIME(6) NOT NULL,
+    updated_at     DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_styling_session_reservation_id (reservation_id),
+    CONSTRAINT fk_styling_session_reservation FOREIGN KEY (reservation_id) REFERENCES reservation (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- 20. payment
 CREATE TABLE payment
 (
     id                BIGINT       NOT NULL AUTO_INCREMENT,
@@ -253,7 +287,7 @@ CREATE TABLE payment
     CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 18. delivery
+-- 21. delivery
 CREATE TABLE delivery
 (
     id              BIGINT       NOT NULL AUTO_INCREMENT,
@@ -270,7 +304,7 @@ CREATE TABLE delivery
     CONSTRAINT fk_delivery_order FOREIGN KEY (order_id) REFERENCES orders (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 19. outbound_api_log (append-only)
+-- 22. outbound_api_log (append-only)
 CREATE TABLE outbound_api_log
 (
     id            BIGINT      NOT NULL AUTO_INCREMENT,
@@ -284,7 +318,7 @@ CREATE TABLE outbound_api_log
     KEY idx_outbound_api_log_order_id (order_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
--- 20. inbound_api_log (append-only)
+-- 23. inbound_api_log (append-only)
 CREATE TABLE inbound_api_log
 (
     id            BIGINT      NOT NULL AUTO_INCREMENT,
