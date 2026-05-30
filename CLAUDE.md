@@ -41,7 +41,7 @@
 ### 2차 오픈
 O2O 출장 스타일링 서비스
 ```
-찜 → 스타일링 예약(PENDING) → 예약확정/스타일리스트배정(CONFIRMED) → 출장시작(IN_PROGRESS) → 현장 판매(COMPLETED)
+찜 → 스타일링 예약/즉시확정(CONFIRMED) → 출장시작(IN_PROGRESS) → 현장 판매(COMPLETED)
 재고: AVAILABLE → RESERVED → IN_TRANSIT → SOLD
 취소 시: 재고 위치 기준 AVAILABLE 복구
 ```
