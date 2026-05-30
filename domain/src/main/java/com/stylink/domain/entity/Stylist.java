@@ -19,6 +19,13 @@ public class Stylist extends BaseEntity {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
+    @Column(name = "email", nullable = false, unique = true, length = 100)
+    private String email;
+
+    // BCrypt 단방향 해시 — bo-api 로그인용 (Admin과 별도 계정 체계)
+    @Column(name = "password", nullable = false, length = 255)
+    private String password;
+
     // AES256(CBC/GCM) 암호화 — 복호화 가능, 화면 표시용
     @Column(name = "phone", nullable = false, length = 255)
     private String phone;

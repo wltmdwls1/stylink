@@ -187,6 +187,12 @@ cancelOrder():
    - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + `reserve()`
    - CONFIRMED → IN_PROGRESS: `transit()`
    - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 `release()`
+3. Stylist 계정 인증 (bo-api):
+   - Stylist 로그인 엔드포인트 추가 (Admin 로그인 패턴 재사용)
+   - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 세션 조회 + 구매확정)
+4. `StylingSessionService` (bo-api, Stylist 계정으로 호출):
+   - 구매확정 상품 → `OrderService.createOrder()` → Payment 프로세스 (1차 동일)
+   - 미구매 상품 → `InventoryService.release()`
 
 ---
 

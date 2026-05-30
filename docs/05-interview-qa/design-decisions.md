@@ -199,3 +199,22 @@ MSA 전환 시 오케스트레이터를 별도 서비스로 분리하거나 Saga
 이력성 테이블(OrderHistory, InventoryLog 등)은 append-only 구조.
 수정이 없는 테이블에 updated_by 같은 수정자 컬럼이 있으면 불필요하고 의도가 불명확.
 BaseLogEntity를 분리해서 append-only 의도를 명확히 표현.
+
+---
+
+### 스타일리스트 계정 — Admin 테이블 분리
+
+**설계:**
+Stylist는 Admin 테이블에 STYLIST 역할을 추가하는 방식이 아닌, Stylist 테이블 자체에 email + password를 두어 독립 계정 체계로 관리.
+
+**근거:**
+Admin(SUPER_ADMIN/MANAGER)은 시스템 운영자 개념이고, Stylist는 현장 서비스 제공자 개념으로 도메인 성격이 다르다.
+Admin 테이블에 STYLIST 역할을 추가하면 Admin과 Stylist가 같은 계정 테이블에 섞여 관리가 복잡해진다.
+Stylist 테이블에 계정 정보를 두면 도메인 경계가 명확하고, 프로필 정보(포트폴리오, 전화번호 등)와 계정 정보가 한 곳에 응집된다.
+
+**인증 구조:**
+Admin 로그인 구현 패턴을 그대로 재사용. JwtProvider는 공통(common)에 있으므로 bo-api의 Stylist 로그인 엔드포인트만 추가하면 된다.
+Security 설정에서 Stylist 접근 가능 엔드포인트(현장 세션 조회, 구매확정)만 별도 권한으로 제한.
+
+**확장 시:**
+실제 PDA 앱을 만들 경우 Stylist 계정 API를 그대로 연동 가능.

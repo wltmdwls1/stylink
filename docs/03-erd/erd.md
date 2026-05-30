@@ -401,3 +401,60 @@ Product 1 ─── N OrderItem
 ## TODO
 
 - [ ] diagrams.net ERD XML 생성 (위 테이블 구조 기반)
+
+## 2차 오픈 테이블 (설계 확정, ERD 상세 미작성)
+
+### stylist (스타일리스트)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 스타일리스트 ID |
+| name | VARCHAR(50) | NOT NULL | 이름 |
+| email | VARCHAR(100) | UNIQUE, NOT NULL | 이메일 (bo-api 로그인 ID) |
+| password | VARCHAR(255) | NOT NULL | BCrypt 암호화 비밀번호 (Admin과 별도 계정 체계) |
+| phone | VARCHAR(255) | NOT NULL | AES256 암호화 전화번호 |
+| phone_hash | VARCHAR(64) | UNIQUE, NOT NULL | SHA-256 해시 (중복체크/검색용) |
+| profile_image_url | VARCHAR(500) | | S3 이미지 URL |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+
+> Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 세션 조회 + 현장 구매확정 입력
+
+### stylist_schedule (스타일리스트 가능 일정)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 일정 ID |
+| stylist_id | BIGINT | FK → stylist.id, NOT NULL | 스타일리스트 ID |
+| available_at | DATETIME | NOT NULL | 예약 가능 일시 |
+| is_booked | TINYINT(1) | NOT NULL, DEFAULT 0 | 예약 여부 (동시성 제어 — @Version) |
+| version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+
+### reservation (예약)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 예약 ID |
+| member_id | BIGINT | FK → member.id, NOT NULL | 고객 ID |
+| stylist_id | BIGINT | FK → stylist.id, NOT NULL | 스타일리스트 ID (즉시 확정) |
+| stylist_schedule_id | BIGINT | FK → stylist_schedule.id, NOT NULL | 예약 일정 |
+| status | VARCHAR(20) | NOT NULL | CONFIRMED / IN_PROGRESS / COMPLETED / CANCELLED |
+| scheduled_at | DATETIME | NOT NULL | 출장 예정 일시 |
+| address | VARCHAR(255) | | 출장 주소 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+
+> PENDING 없음 — 고객이 가능 일정 선택 시 즉시 CONFIRMED (동기 트랜잭션)
+
+### styling_session (스타일링 세션)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 세션 ID |
+| reservation_id | BIGINT | FK → reservation.id, UNIQUE, NOT NULL | 예약 (1:1) |
+| started_at | DATETIME | | 세션 시작 일시 |
+| completed_at | DATETIME | | 세션 완료 일시 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
