@@ -21,7 +21,7 @@
 | OrderHistory | 주문 이력 | 1차 |
 | Inventory | 재고 | 1차/2차 공통 |
 | InventoryLog | 재고 변경 이력 | 1차/2차 공통 |
-| Payment | 결제 | 1차 (Mock) |
+| Payment | 결제 | 1차/2차 공통 (Mock) |
 | Delivery | 배송 | 1차 (Mock) |
 | Stylist | 스타일리스트 | 2차 |
 | StylistSchedule | 스타일리스트 가능 일정 | 2차 |
@@ -200,10 +200,12 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 ---
 
 ### Payment (결제) - Mock
-**책임:** 결제 처리 및 상태 관리
+**책임:** 결제 처리 및 상태 관리 (1차/2차 공통)
 - PG(Toss Payments) Mock 기반 결제 처리
 - 성공/실패/취소/환불 시나리오 처리
-- SHIPPED 이전 → 취소 / SHIPPED 이후 → 환불 구분
+- IN_DELIVERY 이전 → 취소 / IN_DELIVERY 이후 → 환불 구분
+- **1차**: 고객이 장바구니 → 주문 후 직접 결제
+- **2차**: 매니저가 bo-api로 구매 상품 확정 후 Payment 프로세스 트리거 (PDA 역할 대체)
 
 **주요 관계:**
 - `Order` 와 1:1
@@ -267,8 +269,8 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 ### StylingSession (스타일링 세션)
 **책임:** 현장 스타일링 진행 1회 기록 및 판매 관리
 - 스타일리스트 출장 현장에서의 스타일링 세션 1회 기록
-- 세션 내 개별 상품별 구매/미구매 처리
-  - 구매 확정 → 현장 주문(Order) 생성 → 재고 SOLD
+- 매니저가 bo-api로 상품별 구매/미구매 결정 (PDA 역할 대체)
+  - 구매 확정 → 현장 주문(Order) 생성 → Payment 프로세스(PENDING→SUCCESS) → 재고 SOLD
   - 미구매 → 재고 AVAILABLE 복구
 - 스타일링 세션 완료 처리
 
