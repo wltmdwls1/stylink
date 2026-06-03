@@ -195,14 +195,14 @@ NORMAL ──누적구매 100만원 이상──► VIP
 
 > Mock 기반 처리 / 1차/2차 공통
 > - **1차**: 고객이 장바구니 → 주문 → 결제 진행
-> - **2차**: 매니저가 bo-api로 상품별 구매 확정 후 Payment 프로세스 트리거 (PDA 대체)
+> - **2차**: 스타일리스트가 bo-api로 상품별 구매 확정 후 Payment 프로세스 트리거 (PDA 대체)
 
 ```
 PENDING ──결제요청──► SUCCESS
    │
   실패
    ▼
-FAILED
+ FAILED
 
 [IN_DELIVERY 이전 - 취소]
 SUCCESS ──취소요청──► CANCEL_REQUESTED ──취소완료──► CANCELLED
@@ -225,7 +225,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 - **IN_DELIVERY 이전** → 취소(CANCEL) 처리
 - **IN_DELIVERY 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
 - 결제 실패 시 → 주문 FAILED + 재고 RESERVED 해제 (전체 롤백)
-- **2차 현장 결제**: 매니저가 bo-api로 구매 상품 확정 → Order 생성 → 동일 Payment 흐름 적용
+- **2차 현장 결제**: 스타일리스트가 bo-api로 구매 상품 확정 → Order 생성 → 동일 Payment 흐름 적용
 
 ---
 
@@ -235,10 +235,10 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 
 ```
 READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
-                                          │
-                                       반품요청
-                                          ▼
-                                  RETURN_REQUESTED ──반품완료──► RETURNED
+                                           │
+                                         반품요청
+                                           ▼
+                                   RETURN_REQUESTED ──반품완료──► RETURNED
 ```
 
 | 상태                  | 한글명 | 설명 |
@@ -257,12 +257,12 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 
 ## 상태 전이 요약
 
-| 도메인 | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
-|-------|-------------|----------|----------|
+| 도메인     | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
+|---------|-------------|----------|----------|
 | 재고 (1차) | AVAILABLE → RESERVED → SOLD | 반품 시 AVAILABLE 복구 | 1차 |
 | 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 2차 |
-| 주문 | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
-| 예약 | CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
-| 회원 | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
-| 결제 | PENDING → SUCCESS → CANCELLED / REFUNDED | IN_DELIVERY 기준 취소/환불 구분 | 1차/2차 공통 (Mock) |
-| 배송 | READY → IN_DELIVERY → DELIVERED → RETURNED | - | 1차 (Mock) |
+| 주문      | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
+| 예약      | CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
+| 회원      | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
+| 결제      | PENDING → SUCCESS → CANCELLED / REFUNDED | IN_DELIVERY 기준 취소/환불 구분 | 1차/2차 공통 (Mock) |
+| 배송      | READY → IN_DELIVERY → DELIVERED → RETURNED | - | 1차 (Mock) |

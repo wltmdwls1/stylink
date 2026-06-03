@@ -58,6 +58,7 @@
 |------|--------|----------|
 | `SUPER_ADMIN` | 최고관리자 | 전체 접근 |
 | `MANAGER` | 매니저 | 주문/재고/예약/스타일리스트 배정 관리 |
+| `STYLIST` | 스타일리스트 | 담당 세션 조회 + 현장 구매확정 |
 
 ---
 
@@ -205,7 +206,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - 성공/실패/취소/환불 시나리오 처리
 - IN_DELIVERY 이전 → 취소 / IN_DELIVERY 이후 → 환불 구분
 - **1차**: 고객이 장바구니 → 주문 후 직접 결제
-- **2차**: 매니저가 bo-api로 구매 상품 확정 후 Payment 프로세스 트리거 (PDA 역할 대체)
+- **2차**: 스타일리스트가 bo-api로 구매 상품 확정 후 Payment 프로세스 트리거 (PDA 역할 대체)
 
 **주요 관계:**
 - `Order` 와 1:1
@@ -272,7 +273,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 ### StylingSession (스타일링 세션)
 **책임:** 현장 스타일링 진행 1회 기록 및 판매 관리
 - 스타일리스트 출장 현장에서의 스타일링 세션 1회 기록
-- 매니저가 bo-api로 상품별 구매/미구매 결정 (PDA 역할 대체)
+- 스타일리스트가 bo-api로 상품별 구매/미구매 결정 (PDA 역할 대체)
   - 구매 확정 → 현장 주문(Order) 생성 → Payment 프로세스(PENDING→SUCCESS) → 재고 SOLD
   - 미구매 → 재고 AVAILABLE 복구
 - 스타일링 세션 완료 처리
@@ -308,7 +309,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 
 Member ──── Wishlist ──────────────── Product ──── ProductHistory
   │                                      │
-  ├──── Cart ──── CartItem               Inventory ──── InventoryLog
+  ├──── Cart ──── CartItem            Inventory ──── InventoryLog
   │
   └──── Order ──── OrderItem
           │
@@ -324,7 +325,7 @@ Member ──── Reservation ──── Stylist ──── StylistSchedul
                 ├──── Wishlist (찜 목록 참조)
                 ├──── Inventory (RESERVED / IN_TRANSIT)
                 └──── StylingSession ──── Order (현장 판매)
-                                     └── Inventory (SOLD / AVAILABLE)
+                                      └── Inventory (SOLD / AVAILABLE)
 ```
 
 ---
