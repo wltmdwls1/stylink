@@ -123,7 +123,7 @@ Product 1 ─── N OrderItem
 | email | VARCHAR(100) | UNIQUE, NOT NULL | 이메일 (로그인 ID) |
 | password | VARCHAR(255) | NOT NULL | BCrypt 암호화된 비밀번호 |
 | name | VARCHAR(50) | NOT NULL | 이름 |
-| role | VARCHAR(20) | NOT NULL | 권한 (SUPER_ADMIN / MANAGER) |
+| role | VARCHAR(20) | NOT NULL | 권한 (SUPER_ADMIN / MANAGER / STYLIST) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
