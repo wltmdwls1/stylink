@@ -33,3 +33,10 @@ build/
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# 강의 원본 PDF (로컬 전용, 저작권 보호)
+docs/08-study/**/*.pdf
+docs/08-study/**/*.PDF
+
+# 강의 텍스트 추출본 (로컬 전용, 저작권 보호)
+docs/08-study/summaries/_raw/
