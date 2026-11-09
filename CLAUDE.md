@@ -22,6 +22,15 @@
 
 ---
 
+## Claude 메모리 동기화 (멀티 컴퓨터)
+- 메모리 폴더 `~/.claude/projects/C--dev-stylink/memory/` 는 **private 레포 `stylink-claude-memory`** 로 관리
+- 사용자가 "메모리 pull" 요청 → 메모리 폴더에서 `git pull`
+- 사용자가 "메모리 push" 요청 → 메모리 폴더에서 `git add -A` → commit → `git push`
+- 메모리 변경이 있었던 작업이 끝나면 push 필요 여부를 사용자에게 알려줄 것
+- 메모리에 비밀번호/토큰/API 키 등 비밀값 **절대 저장 금지** (환경변수로만 관리)
+
+---
+
 ## 프로젝트 개요
 - 프로젝트명: **stylink** (style + link, 스타일을 연결해준다는 의미)
 - GitHub: https://github.com/wltmdwls1/stylink.git

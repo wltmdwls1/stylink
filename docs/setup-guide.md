@@ -86,12 +86,27 @@ Started FoApiApplication
 
 ## 6. Claude Code 설정 (선택)
 
-Claude 메모리는 Git에 포함되지 않습니다. 이어서 쓰려면 기존 컴퓨터의 아래 폴더를 새 컴퓨터 같은 위치로 복사합니다.
-```
-C:\Users\<사용자명>\.claude\projects\C--dev-stylink\memory\
+Claude 메모리는 stylink 레포가 아닌 **별도 private 레포**(`stylink-claude-memory`)로 관리합니다.
+Claude Code가 메모리를 읽는 위치에 그대로 clone하면 자동으로 인식됩니다.
+
+```powershell
+# 프로젝트 폴더에서 Claude Code를 한 번 실행하면 아래 상위 폴더가 생성됨
+cd $env:USERPROFILE\.claude\projects\C--dev-stylink
+
+# memory 폴더가 이미 있으면 비어 있는지 확인 후 삭제
+git clone https://github.com/<계정>/stylink-claude-memory.git memory
 ```
 
-- `CLAUDE.md`는 레포에 있으므로 별도 작업 불필요
+- 폴더명 `C--dev-stylink`은 프로젝트 경로(`C:\dev\stylink`)에서 만들어지므로 **프로젝트 경로를 반드시 동일하게** 유지
+- `CLAUDE.md`는 stylink 레포에 있으므로 별도 작업 불필요
+
+### 메모리 동기화
+| 시점 | Claude에게 | 동작 |
+|---|---|---|
+| 작업 시작 | "메모리 pull" | 메모리 폴더 `git pull` |
+| 작업 종료 | "메모리 push" | 메모리 폴더 commit + push |
+
+> 메모리에는 비밀번호/토큰/API 키를 절대 저장하지 않습니다. private 레포라도 동일합니다.
 
 ---
 
