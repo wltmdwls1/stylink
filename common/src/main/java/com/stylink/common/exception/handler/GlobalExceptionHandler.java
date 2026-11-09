@@ -4,7 +4,6 @@ import com.stylink.common.exception.BusinessException;
 import com.stylink.common.exception.ErrorCode;
 import com.stylink.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -35,7 +34,7 @@ public class GlobalExceptionHandler {
                 .orElse(ErrorCode.INVALID_INPUT.getMessage());
         log.warn("[ValidationException] message={}", message);
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(ErrorCode.INVALID_INPUT.getHttpStatus())
                 .body(ApiResponse.fail(message));
     }
 
@@ -44,8 +43,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         log.warn("[MethodNotSupported] method={}", e.getMethod());
         return ResponseEntity
-                .status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(ApiResponse.fail("지원하지 않는 HTTP 메서드입니다."));
+                .status(ErrorCode.METHOD_NOT_ALLOWED.getHttpStatus())
+                .body(ApiResponse.fail(ErrorCode.METHOD_NOT_ALLOWED.getMessage()));
     }
 
     // 존재하지 않는 경로 (404) — yml에 throw-exception-if-no-handler-found: true 필수
@@ -53,7 +52,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleNoHandlerFound(NoHandlerFoundException e) {
         log.warn("[NoHandlerFound] path={}", e.getRequestURL());
         return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+                .status(ErrorCode.NOT_FOUND.getHttpStatus())
                 .body(ApiResponse.fail(ErrorCode.NOT_FOUND.getMessage()));
     }
 
@@ -62,7 +61,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleException(Exception e) {
         log.error("[UnhandledException] message={}", e.getMessage(), e);
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus())
                 .body(ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 }

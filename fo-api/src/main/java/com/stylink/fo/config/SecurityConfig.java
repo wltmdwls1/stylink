@@ -1,6 +1,8 @@
 package com.stylink.fo.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stylink.common.exception.ErrorCode;
+import com.stylink.common.response.ApiResponse;
 import com.stylink.fo.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -12,8 +14,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -39,18 +39,18 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         // 토큰 없음 → 401
                         .authenticationEntryPoint((request, response, e) -> {
-                            response.setStatus(401);
+                            response.setStatus(ErrorCode.UNAUTHORIZED.getHttpStatus().value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
                             response.getWriter().write(
-                                    objectMapper.writeValueAsString(Map.of("success", false, "message", "인증이 필요합니다."))
+                                    objectMapper.writeValueAsString(ApiResponse.fail(ErrorCode.UNAUTHORIZED.getMessage()))
                             );
                         })
                         // 토큰 있지만 권한 없음 → 403
                         .accessDeniedHandler((request, response, e) -> {
-                            response.setStatus(403);
+                            response.setStatus(ErrorCode.FORBIDDEN.getHttpStatus().value());
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
                             response.getWriter().write(
-                                    objectMapper.writeValueAsString(Map.of("success", false, "message", "접근 권한이 없습니다."))
+                                    objectMapper.writeValueAsString(ApiResponse.fail(ErrorCode.FORBIDDEN.getMessage()))
                             );
                         })
                 )
