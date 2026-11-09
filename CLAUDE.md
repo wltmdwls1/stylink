@@ -161,6 +161,8 @@ batch   ──┘         │
 - [x] JWT 틀 (JwtProvider in common, JwtAuthenticationFilter in fo-api/bo-api)
 - [x] Logback 로깅 설정 (logback-spring.xml, 환경별 콘솔/파일 분리)
 - [x] 서버 정상 기동 및 동작 확인 완료
+- [x] Flyway 도입 (스키마 버전 관리 — `domain/src/main/resources/db/migration/`, V1=초기 DDL, 변경은 새 V 파일로만 / 기존 파일 수정 금지)
+- [x] 멀티 PC 개발 환경 구성 (로컬 DB + Flyway 동기화, `docs/setup-guide.md`, Claude 메모리 private 레포)
 - [ ] 핵심 비즈니스 로직 구현 (사용자 담당) ← **다음 할 일**
 - [ ] external-mock 구현체 (비즈니스 로직 구현 시 병행)
 - [ ] API 명세서 (Swagger 병행)
@@ -202,4 +204,5 @@ batch   ──┘         │
 - [x] DDL 작성 + 테이블 생성 완료
 - [x] 인프라 셋업 완료 (GlobalExceptionHandler / Security / Swagger / JWT / Logback)
 - [x] 서버 정상 기동 및 동작 확인 완료
+- [x] Flyway 도입 + 멀티 PC 개발 환경 구성 완료 (`docs/setup-guide.md`)
 - [ ] 핵심 비즈니스 로직 구현 ← **다음 할 일**
