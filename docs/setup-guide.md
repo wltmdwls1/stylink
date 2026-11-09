@@ -40,13 +40,16 @@ git config --global user.email "<이메일>"
 PowerShell에서 실행:
 ```powershell
 [Environment]::SetEnvironmentVariable('DB_PASSWORD', '<이 컴퓨터 MySQL root 비밀번호>', 'User')
-[Environment]::SetEnvironmentVariable('JWT_SECRET', '<32자 이상 임의 문자열>', 'User')
+
+# JWT_SECRET: 안전한 난수 48바이트 → Base64 인코딩 (값은 화면에 출력되지 않음)
+$b = New-Object byte[] 48; $r = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $r.GetBytes($b); $r.Dispose()
+[Environment]::SetEnvironmentVariable('JWT_SECRET', [Convert]::ToBase64String($b), 'User')
 ```
 
 | 변수 | 필수 | 설명 |
 |---|---|---|
 | `DB_PASSWORD` | O | 이 컴퓨터 MySQL 비밀번호 (컴퓨터마다 달라도 됨) |
-| `JWT_SECRET` | O | 32자 이상. DB가 컴퓨터별로 분리되어 있으므로 다른 컴퓨터와 같을 필요 없음 |
+| `JWT_SECRET` | O | **Base64 문자열이어야 함** (`JwtProvider`가 Base64 디코딩해서 HMAC 키로 사용). 디코딩 결과 32바이트 이상 필요 → 위 명령으로 생성. 임의 문자열을 직접 입력하면 로그인 시 토큰 발급에서 500 에러. DB가 컴퓨터별로 분리되어 있으므로 다른 컴퓨터와 같을 필요 없음 |
 | `DB_URL` | X | 기본값 `localhost:3306/stylink` |
 | `DB_USERNAME` | X | 기본값 `root` |
 
@@ -134,6 +137,8 @@ git clone https://github.com/<계정>/stylink-claude-memory.git memory
 |---|---|
 | `Access denied for user 'root'` | `DB_PASSWORD` 불일치 또는 미적용 → 값 확인 후 IntelliJ 재시작 |
 | `Could not resolve placeholder 'JWT_SECRET'` | 환경변수 없음 → 3번 확인 후 재시작 |
+| 로그인 시 `DecodingException` / `Illegal base64 character` (500) | `JWT_SECRET`이 Base64 형식이 아님 → 3번 명령으로 재생성 후 재시작 |
+| 로그인 시 `WeakKeyException` | `JWT_SECRET` 디코딩 결과가 32바이트 미만 → 3번 명령으로 재생성 |
 | `Communications link failure` | MySQL 서비스 꺼짐 → `services.msc`에서 MySQL 시작 |
 | `Migration checksum mismatch` | 적용된 마이그레이션 파일이 수정됨 → 원래대로 되돌리기 |
 | `Schema-validation: missing column/table` | 엔티티 변경에 맞는 마이그레이션 누락 → 새 V 파일 추가 |
