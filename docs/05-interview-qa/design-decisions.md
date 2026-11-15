@@ -211,7 +211,18 @@ MSA 전환 시 오케스트레이터를 별도 서비스로 분리하거나 Saga
 비관적 락(SELECT FOR UPDATE)은 DB 레벨 잠금으로 성능 저하가 있다.
 재고 HOLD는 충돌이 드문 경우라 낙관적 락이 적합하다.
 충돌 시 OptimisticLockException → 재시도 또는 실패 처리.
-@Version 컬럼은 임의 수정 절대 금지. DB에서 직접 수정 시 version 컬럼 제외.
+@Version 컬럼은 애플리케이션 코드에서 직접 수정 금지 (JPA가 수정 시 자동 +1, WHERE version 비교도 자동).
+
+**DB에서 데이터를 직접 고쳐야 할 때:**
+- 서버가 켜져 있으면 **항상 `version = version + 1` 함께** 올린다.
+  ```sql
+  UPDATE orders SET status = 'FAILED', version = version + 1 WHERE id = 1;
+  ```
+  - 안 올리면 옛 version으로 읽어 둔 작업이 저장할 때 통과해서, 직접 고친 내용을 조용히 덮어씀
+  - 다른 칸만 고쳐도 마찬가지 — Hibernate 기본 UPDATE는 모든 칸을 다시 씀 (`@DynamicUpdate` 미사용)
+  - 올려서 생기는 손해는 진행 중이던 요청 하나 실패뿐 (의도한 결과)
+- 안 올려도 되는 경우: 서버를 내린 점검 시간 / 서버가 다시 건드리지 않는 끝 상태 행(FAILED, CANCELLED 등)
+- **version을 낮추는 것은 금지** — 옛 값을 들고 있던 작업이 통과해 락이 무력화됨
 
 ---
 
