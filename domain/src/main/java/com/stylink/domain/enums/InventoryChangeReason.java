@@ -21,7 +21,9 @@ public enum InventoryChangeReason {
     SOLD_BY_ORDER("온라인 주문으로 판매완료"),
     SOLD_BY_FIELD_SALE("현장 판매로 판매완료"),
     RESTORED_BY_RETURN("반품으로 복구"),
-    RESTORED_BY_CANCEL("취소로 복구");
+    RESTORED_BY_CANCEL("취소로 복구"),
+    RESTORED_BY_RETURN_CHECK("출장 반납 확인으로 복구"),        // 2차 전용 — 검수 정상
+    UNSELLABLE_BY_RETURN_CHECK("출장 반납 검수 불량으로 판매불가"); // 2차 전용
 
     private final String description;
 }

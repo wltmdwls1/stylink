@@ -96,7 +96,10 @@ RESERVED로 선점 → 결제 완료 시 SOLD 전환으로 흐름이 명확하�
 
 1차는 Delivery 테이블이 배송 상태를 담당 → 재고는 RESERVED→SOLD로 단순화.
 2차는 스타일리스트가 상품을 물리적으로 들고 이동 → Inventory에서 IN_TRANSIT으로 추적.
-IN_TRANSIT 중 예약 취소 시 이동된 위치 기준으로 AVAILABLE 복구 처리.
+IN_TRANSIT 중 예약 취소 불가. 미구매 재고는 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE.
+가는 중/돌아오는 중은 별도 상태 없이 예약 상태(IN_PROGRESS / COMPLETED)로 구분.
+반납 지연은 배치가 알림만 보냄 (실물 확인이 필요하므로 자동 상태 변경 안 함).
+UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리는 확장 포인트.
 
 ---
 

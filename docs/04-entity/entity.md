@@ -131,7 +131,8 @@ public enum InventoryStatus {
     AVAILABLE("판매가능"),
     RESERVED("예약됨"),
     IN_TRANSIT("이동중"),   // 2차 전용
-    SOLD("판매완료");
+    SOLD("판매완료"),
+    UNSELLABLE("판매불가"); // 2차 전용 — 출장 반납 검수 불량
 }
 ```
 

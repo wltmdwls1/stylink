@@ -55,9 +55,13 @@ AVAILABLE ──────────► RESERVED ─────────
             예약확정              스타일리스트 이동              현장판매완료         반품완료
 AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD ──────────► AVAILABLE
     ▲                     │                           │
-    │                    취소                   예약취소(이동 후)   
-    └─────────────────────┘                           ▼
-                                                  AVAILABLE
+    │                    취소              미구매 (COMPLETED 후 센터 복귀)
+    └─────────────────────┘                           │
+                                                 BO 반납 확인 (검수)
+                                                ┌─────┴─────┐
+                                              정상          불량
+                                                ▼            ▼
+                                           AVAILABLE    UNSELLABLE
 ```
 
 | 상태           | 한글명 | 설명 |
@@ -66,10 +70,17 @@ AVAILABLE ──────────► RESERVED ─────────
 | `RESERVED`   | 예약됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
 | `IN_TRANSIT` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
 | `SOLD`       | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
+| `UNSELLABLE` | 판매불가 | 출장 반납 검수에서 불량 판정된 재고 **(2차 전용)** |
 
 **정책**
 - RESERVED 상태 일정 시간 초과 시 → 자동으로 AVAILABLE 복구 (배치 처리) — 1차/2차 공통
-- IN_TRANSIT 중 예약 취소 시 → 이동된 위치 기준으로 AVAILABLE 복구 — 2차 전용
+- IN_TRANSIT 중 예약 취소 불가 (예약 IN_PROGRESS 이후 취소 불가 정책과 동일) — 2차 전용
+- 예약 COMPLETED 시 미구매 재고 → IN_TRANSIT 유지 (스타일리스트가 센터로 복귀 중) — 2차 전용
+  - 가는 중/돌아오는 중 구분: 별도 상태 없이 예약 상태로 판단 (IN_PROGRESS = 가는 중, COMPLETED = 돌아오는 중)
+  - 센터 도착 후 BO에서 직원이 직접 보고 **반납 확인(검수)** → 정상: AVAILABLE / 불량: UNSELLABLE
+  - 반납 확인 전까지 판매가능 재고에 포함되지 않음 → 차에 있는 옷이 1차 온라인에서 팔리는 문제 방지
+  - 배치: COMPLETED 후 일정 시간(예: 24시간)이 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock). 상태 자동 변경 안 함 (실물 확인 필요)
+- **확장 포인트** (현재 범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 미반납 재고 분실 처리 — 2차 전용
 - 동시 주문 발생 시 → 한 건만 RESERVED 성공, 나머지는 실패 처리 (낙관적 락)
 - 반품 완료 시 → SOLD → AVAILABLE 복구 — 1차/2차 공통
 
@@ -142,7 +153,7 @@ CANCELLED
 - 관리자(MANAGER)가 부득이한 사유로 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
 - COMPLETED = 스타일링 세션 종료를 의미 (모든 상품 판매 완료가 아님)
   - 구매 확정 상품 → 현장 주문 생성 → 재고 SOLD
-  - 미구매 상품 → 재고 AVAILABLE 복구
+  - 미구매 상품 → 재고 IN_TRANSIT 유지 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
 - 취소 시 재고 복구
   - CONFIRMED 취소 → RESERVED 해제 → AVAILABLE
   - IN_TRANSIT 중 관리자 취소 불가 (IN_PROGRESS 이후 취소 불가 정책 동일)
@@ -260,7 +271,7 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 | 도메인     | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
 |---------|-------------|----------|----------|
 | 재고 (1차) | AVAILABLE → RESERVED → SOLD | 반품 시 AVAILABLE 복구 | 1차 |
-| 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD | 반품 시 AVAILABLE 복구 | 2차 |
+| 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD (미구매: 반납 확인 → AVAILABLE / UNSELLABLE) | IN_TRANSIT 중 취소 불가, 반품 시 AVAILABLE 복구 | 2차 |
 | 주문      | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
 | 예약      | CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원      | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |

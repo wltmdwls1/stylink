@@ -301,7 +301,7 @@ Product 1 ─── N OrderItem
 | updated_by | BIGINT | | 수정자 ID |
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
-**재고 상태값:** `AVAILABLE` / `RESERVED` / `IN_TRANSIT` / `SOLD`
+**재고 상태값:** `AVAILABLE` / `RESERVED` / `IN_TRANSIT` / `SOLD` / `UNSELLABLE`(2차 전용, 반납 검수 불량)
 
 > `version` 컬럼: JPA `@Version` 낙관적 락으로 동시 HOLD 중복 방지
 

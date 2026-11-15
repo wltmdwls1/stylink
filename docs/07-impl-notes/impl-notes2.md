@@ -186,13 +186,21 @@ cancelOrder():
 2. `ReservationService`:
    - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + `reserve()`
    - CONFIRMED → IN_PROGRESS: `transit()`
-   - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 `release()`
+   - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 IN_TRANSIT 유지 (센터 복귀 중)
 3. Stylist 계정 인증 (bo-api):
    - Stylist 로그인 엔드포인트 추가 (Admin 로그인 패턴 재사용)
    - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 세션 조회 + 구매확정)
 4. `StylingSessionService` (bo-api, Stylist 계정으로 호출):
    - 구매확정 상품 → `OrderService.createOrder()` → Payment 프로세스 (1차 동일)
-   - 미구매 상품 → `InventoryService.release()`
+   - 미구매 상품 → 상태 변경 없음 (IN_TRANSIT 유지, 반납 확인 대기)
+5. 반납 확인 (bo-api, 센터 직원이 실물 검수 후 호출):
+   - 대상: IN_TRANSIT + 예약 COMPLETED 인 재고만 (가는 중인 재고는 거부)
+   - 정상 → IN_TRANSIT→AVAILABLE (reason: RESTORED_BY_RETURN_CHECK)
+   - 불량 → IN_TRANSIT→UNSELLABLE (reason: UNSELLABLE_BY_RETURN_CHECK)
+6. batch: 반납 지연 알림
+   - COMPLETED 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock)
+   - 상태는 바꾸지 않음 (실물 확인은 사람이 해야 함)
+- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리
 
 ---
 

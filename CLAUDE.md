@@ -52,7 +52,10 @@ O2O 출장 스타일링 서비스
 ```
 찜 → 스타일링 예약/즉시확정(CONFIRMED) → 출장시작(IN_PROGRESS) → 현장 판매(COMPLETED)
 재고: AVAILABLE → RESERVED → IN_TRANSIT → SOLD
-취소 시: 재고 위치 기준 AVAILABLE 복구
+취소: 출장 시작(IN_PROGRESS) 전만 가능 → RESERVED → AVAILABLE
+미구매 재고: 센터 복귀 후 BO 반납 확인(검수) → 정상 AVAILABLE / 불량 UNSELLABLE
+반납 지연: batch가 관리자 알림만 (자동 상태 변경 없음)
+확장 포인트: UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리
 ```
 
 ### 완전 제외 (재론 금지)
