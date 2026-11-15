@@ -28,11 +28,12 @@ external-mock/src/main/java/com/stylink/mock/
 
 ## Phase A — Claude 먼저 준비
 
-### A-1. @Version 확인 (Inventory만 유지)
-- `Inventory` 엔티티에 이미 `@Version` 적용되어 있음 → 그대로 유지
-- 나머지 Entity에는 추가 안 함
-- 근거: 동시 주문이 몰리는 재고에만 낙관적 락이 필요. Order/Payment 등은 한 사용자가 순차 처리하는 흐름이라 의도적으로 제외 → 면접 질문 "왜 Inventory만인가?"에 설계 근거로 답변 가능
-- ⚠️ 예외: 결제대기 만료 배치 도입으로 Order는 "결제 vs 배치" 동시 접근이 생김 → Step 5-1 참고
+### A-1. @Version 적용 대상 (Inventory, Order, StylistSchedule)
+- `Inventory`: 동시 주문/예약 시 같은 재고 중복 RESERVED 방지
+- `Order`: 결제 API(PENDING→PAID)와 결제대기 만료 배치(PENDING→FAILED)가 같은 주문을 동시에 바꾸는 것 방지 (V4 추가)
+- `StylistSchedule`: 같은 일정 중복 예약 방지 (2차)
+- 나머지 Entity(Payment 등)에는 추가 안 함 — 한 사용자가 순차 처리하는 흐름이라 동시 변경 경로가 없음
+- 면접 대응: "왜 이 세 개만인가?" → 동시에 바꾸는 경로가 실제로 있는 곳에만 적용
 
 ### A-2. Repository 인터페이스 일괄 생성
 `domain/repository/` 아래 각 Entity별 JpaRepository 생성. 비즈니스에서 필요한 쿼리 메서드 시그니처 포함.
@@ -170,8 +171,11 @@ cancelOrder():
 - 주문 PENDING 15분 초과 → Order FAILED + `release()` (reason: RELEASED_BY_BATCH_EXPIRED)
 - 화면 타이머는 10분 (안내용), 서버 기준은 15분 (5분 여유 — 결제 진행 중 만료 방지)
 - **결제 vs 배치 동시 처리**: 주문 PENDING→PAID / PENDING→FAILED 중 먼저 바꾼 쪽만 성공해야 함
-  - Order에도 동시 접근이 생기므로 A-1의 "Inventory만 @Version" 근거가 Order에는 더 이상 맞지 않음
-  - 막는 방법(@Version / 조건부 UPDATE 등)은 구현 시 결정 (사용자 담당)
+  - `Order`에 `@Version` 적용 (V4) → 늦게 저장하는 쪽에서 낙관적 락 예외 발생
+    - 결제가 늦으면: 예외 잡아서 PG 취소(전액 환불) + 안내
+    - 배치가 늦으면: 예외 잡아서 그 주문은 건너뜀 (재고도 건드리지 않음)
+  - 주의: 배치를 벌크 UPDATE(JPQL/네이티브)로 하면 @Version 확인 안 됨 → 주문을 하나씩 읽어서 엔티티로 변경
+  - 예외 처리, PG 호출을 트랜잭션 안/밖 어디에 둘지는 구현 시 결정 (사용자 담당)
 
 검증: 결제 없이 15분 경과 → FAILED + 재고 AVAILABLE / 결제와 배치 동시 실행 → 한쪽만 성공
 

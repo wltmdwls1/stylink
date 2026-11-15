@@ -240,6 +240,7 @@ Product 1 ─── N OrderItem
 | member_id | BIGINT | FK → member.id, NOT NULL | 고객 ID |
 | status | VARCHAR(30) | NOT NULL | 주문상태 Enum |
 | total_price | BIGINT | NOT NULL | 총 주문금액 |
+| version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락 — 결제 vs 결제대기 만료 배치 동시 처리 방지 (V4 추가) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |

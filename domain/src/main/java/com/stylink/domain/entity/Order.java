@@ -36,4 +36,10 @@ public class Order extends BaseEntity {
 
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 0)
     private BigDecimal totalAmount;
+
+    // 낙관적 락 — 결제(PENDING→PAID)와 만료 배치(PENDING→FAILED)가 동시에 바꾸면 늦은 쪽 실패
+    // 주의: 벌크 UPDATE(JPQL/네이티브)는 @Version을 확인하지 않음 → 배치는 엔티티 단위로 변경
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
