@@ -46,12 +46,18 @@
 
 ### 1차 (온라인 주문)
 ```
-            주문발생                 배송완료            반품완료
+            주문발생                 배송시작            반품완료
 AVAILABLE ──────────► RESERVED ──────────────► SOLD ──────────► AVAILABLE
     ▲                     │
     │             취소 / 만료 / 결제실패
     └─────────────────────┘
 ```
+
+**SOLD 시점 = 배송 시작(IN_DELIVERY)** — 1차
+- 주문 취소 경계 / 결제 CANCEL·REFUND 경계 / 재고 SOLD 경계가 모두 배송 시작으로 일치
+  - 배송 시작 전: 주문 취소 가능 → 결제 CANCEL → 재고 RESERVED → AVAILABLE (`release()`)
+  - 배송 시작 후: 반품만 가능 → 결제 REFUND → 재고 SOLD → AVAILABLE (`restore()`)
+- 결제 전/후 RESERVED 구분은 재고 상태가 아니라 주문 상태로 판단 (PENDING이면 결제 전, 그 외는 결제 완료)
 
 ### 2차 (O2O 출장 서비스)
 ```
