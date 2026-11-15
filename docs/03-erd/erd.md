@@ -442,6 +442,7 @@ Product 1 ─── N OrderItem
 | stylist_schedule_id | BIGINT | FK → stylist_schedule.id, NOT NULL | 예약 일정 |
 | status | VARCHAR(20) | NOT NULL | CONFIRMED / IN_PROGRESS / COMPLETED / CANCELLED |
 | scheduled_at | DATETIME | NOT NULL | 출장 예정 일시 |
+| zip_code | VARCHAR(10) | NOT NULL | 출장지 우편번호 — 서비스 지역 판단 (서울 한정, V2 추가) |
 | address | VARCHAR(255) | | 출장 주소 |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |

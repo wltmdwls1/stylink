@@ -38,6 +38,10 @@ public class Reservation extends BaseEntity {
     @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;
 
+    // 출장지 우편번호 — 서비스 지역 판단 (현재 서울 한정: 앞 두 자리 01~08)
+    @Column(name = "zip_code", nullable = false, length = 10)
+    private String zipCode;
+
     // 출장 주소
     @Column(name = "address", length = 255)
     private String address;

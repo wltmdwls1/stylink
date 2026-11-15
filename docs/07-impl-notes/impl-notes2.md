@@ -184,6 +184,7 @@ cancelOrder():
 
 1. `InventoryService.transit()` 추가 — RESERVED→IN_TRANSIT + InventoryLog
 2. `ReservationService`:
+   - 예약 생성 전: 출장지 우편번호 검증 (서울만 — 앞 두 자리 01~08, 아니면 예외)
    - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + `reserve()`
    - CONFIRMED → IN_PROGRESS: `transit()`
    - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 IN_TRANSIT 유지 (센터 복귀 중)
