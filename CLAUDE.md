@@ -72,7 +72,7 @@ O2O 출장 스타일링 서비스
 stylink/
 ├── fo-api         # 고객향 REST API (FO 화면 없음, Swagger로 테스트)
 ├── bo-api         # 관리자 API (나중에 TypeScript BO 화면 연동)
-├── batch          # 스케줄러 (HOLD 만료 자동 해제, 예약 만료 자동 취소 등)
+├── batch          # 스케줄러 (1차: 결제대기 주문 15분 만료 / 2차: 반납 지연 알림)
 ├── domain         # 핵심 비즈니스 로직 + JPA Entity
 ├── common         # 공통 예외, ApiResponse, 상수, 유틸
 └── external-mock  # PG/배송/알림/인증 Mock (인터페이스 기반)

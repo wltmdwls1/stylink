@@ -76,7 +76,10 @@ AVAILABLE ──────────► RESERVED ─────────
 | `UNSELLABLE` | 판매불가 | 출장 반납 검수에서 불량 판정된 재고 **(2차 전용)** |
 
 **정책**
-- RESERVED 상태 일정 시간 초과 시 → 자동으로 AVAILABLE 복구 (배치 처리) — 1차/2차 공통
+- 결제대기 만료 (배치) — **1차 전용**
+  - 대상: **주문 PENDING 15분 초과** (재고 RESERVED 기준이 아님 — 결제 완료 후 배송 전, 2차 출장 전 RESERVED까지 풀리는 문제 방지)
+  - 처리: 주문 FAILED + 재고 RESERVED → AVAILABLE (reason: RELEASED_BY_BATCH_EXPIRED)
+  - 2차는 예약 시 결제가 없으므로 만료 없음 — RESERVED는 출장일까지 유지, 풀리는 건 예약 취소 시뿐
 - IN_TRANSIT 중 예약 취소 불가 (예약 IN_PROGRESS 이후 취소 불가 정책과 동일) — 2차 전용
 - 예약 COMPLETED 시 미구매 재고 → IN_TRANSIT 유지 (스타일리스트가 센터로 복귀 중) — 2차 전용
   - 가는 중/돌아오는 중 구분: 별도 상태 없이 예약 상태로 판단 (IN_PROGRESS = 가는 중, COMPLETED = 돌아오는 중)
@@ -121,6 +124,14 @@ PENDING ──────────► PAID ───────────
 
 **정책**
 - PENDING → 결제 실패 시 재고 RESERVED 해제 (AVAILABLE 복구)
+- **결제 시간 제한**: 화면 타이머 10분 (끝나면 결제창 닫힘 — 안내용) / 서버 만료 기준 15분 (판단 기준)
+  - 서버에 5분 여유를 두는 이유: 9분 59초에 누른 결제가 PG 응답을 기다리는 동안 만료되지 않도록
+  - 강제 종료/네트워크 끊김 등으로 결제를 못 한 주문도 서버 배치가 15분 후 FAILED 처리 + 재고 복구
+  - 결제는 주문이 PENDING일 때만 진행 — 만료(FAILED)된 주문의 결제 요청은 거절
+- **결제 vs 만료 배치 동시 처리**: 주문 PENDING → (PAID 또는 FAILED) 전환은 먼저 바꾼 쪽만 성공
+  - PG 결제는 성공했는데 주문이 이미 FAILED(만료) → 주문을 되살리지 않고 **PG 취소(전액 환불) + 안내**
+  - 확장 포인트: 재고가 남아 있으면 주문을 되살리는 방식 (FAILED→PAID 예외 전이, 부분 재고 처리 문제로 제외)
+- FAILED는 끝 상태 — 다시 사려면 새 주문
 - PAID, IN_PREPARATION 상태에서만 취소 가능
 - **IN_DELIVERY 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
 - 반품 완료 시 → 재고 AVAILABLE 복구 + 환불(REFUND) 처리
@@ -241,6 +252,7 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 - **IN_DELIVERY 이전** → 취소(CANCEL) 처리
 - **IN_DELIVERY 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
 - 결제 실패 시 → 주문 FAILED + 재고 RESERVED 해제 (전체 롤백)
+- 1차 결제 시간 초과로 주문이 이미 FAILED인데 PG 성공 응답이 오면 → PG 취소(전액 환불) — 주문 정책 참고
 - **2차 현장 결제**: 스타일리스트가 bo-api로 구매 상품 확정 → Order 생성 → 동일 Payment 흐름 적용
 
 ---

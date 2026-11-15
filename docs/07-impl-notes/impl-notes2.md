@@ -32,6 +32,7 @@ external-mock/src/main/java/com/stylink/mock/
 - `Inventory` 엔티티에 이미 `@Version` 적용되어 있음 → 그대로 유지
 - 나머지 Entity에는 추가 안 함
 - 근거: 동시 주문이 몰리는 재고에만 낙관적 락이 필요. Order/Payment 등은 한 사용자가 순차 처리하는 흐름이라 의도적으로 제외 → 면접 질문 "왜 Inventory만인가?"에 설계 근거로 답변 가능
+- ⚠️ 예외: 결제대기 만료 배치 도입으로 Order는 "결제 vs 배치" 동시 접근이 생김 → Step 5-1 참고
 
 ### A-2. Repository 인터페이스 일괄 생성
 `domain/repository/` 아래 각 Entity별 JpaRepository 생성. 비즈니스에서 필요한 쿼리 메서드 시그니처 포함.
@@ -159,10 +160,20 @@ cancelOrder():
 ---
 
 ### Step 5: PaymentService + MockPgGateway
-- `pay(orderId)` — MockPgGateway.charge() → 성공: Order PAID / 실패: Order FAILED + release()
+- `pay(orderId)` — 주문 PENDING 확인 (아니면 거절) → MockPgGateway.charge() → 성공: Order PAID / 실패: Order FAILED + release()
+  - PG 성공인데 주문이 이미 FAILED(만료 배치가 먼저 처리) → MockPgGateway.cancel()로 전액 환불 + 안내
 - `refund(paymentId)` — MockPgGateway.cancel() 호출
 
-검증: 결제 성공 플로우 / 결제 실패 → Inventory AVAILABLE 복구
+검증: 결제 성공 플로우 / 결제 실패 → Inventory AVAILABLE 복구 / 만료된 주문 결제 요청 거절 / 결제 중 만료 → 환불
+
+### Step 5-1: batch — 결제대기 만료 (1차 전용)
+- 주문 PENDING 15분 초과 → Order FAILED + `release()` (reason: RELEASED_BY_BATCH_EXPIRED)
+- 화면 타이머는 10분 (안내용), 서버 기준은 15분 (5분 여유 — 결제 진행 중 만료 방지)
+- **결제 vs 배치 동시 처리**: 주문 PENDING→PAID / PENDING→FAILED 중 먼저 바꾼 쪽만 성공해야 함
+  - Order에도 동시 접근이 생기므로 A-1의 "Inventory만 @Version" 근거가 Order에는 더 이상 맞지 않음
+  - 막는 방법(@Version / 조건부 UPDATE 등)은 구현 시 결정 (사용자 담당)
+
+검증: 결제 없이 15분 경과 → FAILED + 재고 AVAILABLE / 결제와 배치 동시 실행 → 한쪽만 성공
 
 ---
 
@@ -177,6 +188,7 @@ cancelOrder():
 
 ### Step 7: 부가 기능
 - `CartService` — 장바구니 담기/삭제/조회
+  - 추후 결정: 결제 만료(FAILED) 후 장바구니로 돌아왔을 때, 담긴 재고 한 벌(`cart_item.inventory_id`)이 이미 팔렸으면 화면 표시/재주문 처리 방법
 - `WishlistService` — 찜 추가/삭제/조회
 
 ---
