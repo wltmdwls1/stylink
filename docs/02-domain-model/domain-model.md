@@ -26,6 +26,7 @@
 | Stylist | 스타일리스트 | 2차 |
 | StylistSchedule | 스타일리스트 가능 일정 | 2차 |
 | Reservation | 예약 | 2차 |
+| ReservationItem | 예약 상품 (예약 ↔ 재고 연결) | 2차 |
 | StylingSession | 스타일링 세션 | 2차 |
 | OutboundApiLog | 외부 API 요청 로그 | 1차/2차 공통 |
 | InboundApiLog | 외부 API 수신 로그 | 1차/2차 공통 |
@@ -265,8 +266,21 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - `Stylist` 배정
 - `StylistSchedule` 연결
 - `Wishlist` 기반 상품 목록 참조
-- `Inventory` RESERVED/IN_TRANSIT 처리
+- `ReservationItem` 포함 (1:N) — 이 예약에 묶인 재고
+- `Inventory` RESERVED/IN_TRANSIT 처리 (`ReservationItem` 경유)
 - `StylingSession` 으로 진행
+
+---
+
+### ReservationItem (예약 상품)
+**책임:** 예약 ↔ 재고 연결 (1차 `OrderItem`과 같은 역할)
+- 예약 확정 시 찜 상품마다 AVAILABLE 재고 1벌을 RESERVED로 잡고 이 행 저장
+- 출발/취소/반납 확인/반납 지연 알림 시 처리할 재고를 이 테이블로 조회
+- `returned_at`(반납 확인 시각)으로 반납 여부 구분 — 같은 재고가 다른 예약으로 다시 나가도 옛 예약 행이 반납 대상으로 잡히지 않음
+
+**주요 관계:**
+- `Reservation` 에 속함 (N:1)
+- `Inventory` 참조 (N:1)
 
 ---
 
@@ -323,7 +337,7 @@ Member ──── Wishlist ──────────────── Pr
 Member ──── Reservation ──── Stylist ──── StylistSchedule
                 │
                 ├──── Wishlist (찜 목록 참조)
-                ├──── Inventory (RESERVED / IN_TRANSIT)
+                ├──── ReservationItem ──── Inventory (RESERVED / IN_TRANSIT)
                 └──── StylingSession ──── Order (현장 판매)
                                       └── Inventory (SOLD / AVAILABLE)
 ```

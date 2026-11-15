@@ -47,6 +47,7 @@ external-mock/src/main/java/com/stylink/mock/
 | `PaymentRepository` | `findByOrderId` |
 | `DeliveryRepository` | `findByOrderId` |
 | `ReservationRepository` | `findByMemberId`, `findByStatus` |
+| `ReservationItemRepository` | `findByReservationId` (2차) |
 | `CartRepository` | `findByMemberId` |
 | `CartItemRepository` | `findByCartId` |
 | `WishlistRepository` | `findByMemberId` |
@@ -185,8 +186,9 @@ cancelOrder():
 1. `InventoryService.transit()` 추가 — RESERVED→IN_TRANSIT + InventoryLog
 2. `ReservationService`:
    - 예약 생성 전: 출장지 우편번호 검증 (서울만 — 앞 두 자리 01~08, 아니면 예외)
-   - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + `reserve()`
-   - CONFIRMED → IN_PROGRESS: `transit()`
+   - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + 찜 상품마다 AVAILABLE 재고 1벌 `reserve()` + `ReservationItem` 저장
+   - CONFIRMED → CANCELLED: `ReservationItem`으로 재고 찾아 `release()` (RESERVED→AVAILABLE)
+   - CONFIRMED → IN_PROGRESS: `ReservationItem`으로 재고 찾아 `transit()`
    - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 IN_TRANSIT 유지 (센터 복귀 중)
 3. Stylist 계정 인증 (bo-api):
    - Stylist 로그인 엔드포인트 추가 (Admin 로그인 패턴 재사용)
@@ -195,11 +197,12 @@ cancelOrder():
    - 구매확정 상품 → `OrderService.createOrder()` → Payment 프로세스 (1차 동일)
    - 미구매 상품 → 상태 변경 없음 (IN_TRANSIT 유지, 반납 확인 대기)
 5. 반납 확인 (bo-api, 센터 직원이 실물 검수 후 호출):
-   - 대상: IN_TRANSIT + 예약 COMPLETED 인 재고만 (가는 중인 재고는 거부)
+   - 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `ReservationItem.returnedAt IS NULL` (가는 중인 재고는 거부)
    - 정상 → IN_TRANSIT→AVAILABLE (reason: RESTORED_BY_RETURN_CHECK)
    - 불량 → IN_TRANSIT→UNSELLABLE (reason: UNSELLABLE_BY_RETURN_CHECK)
+   - 공통: `ReservationItem.returnedAt` 기록
 6. batch: 반납 지연 알림
-   - COMPLETED 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock)
+   - COMPLETED 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT + `returnedAt IS NULL`인 재고 → 관리자 알림(Mock)
    - 상태는 바꾸지 않음 (실물 확인은 사람이 해야 함)
 - 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리
 

@@ -449,6 +449,24 @@ Product 1 ─── N OrderItem
 
 > PENDING 없음 — 고객이 가능 일정 선택 시 즉시 CONFIRMED (동기 트랜잭션)
 
+### reservation_item (예약 상품 — 예약 ↔ 재고 연결)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 예약 상품 ID |
+| reservation_id | BIGINT | FK → reservation.id, NOT NULL | 예약 ID |
+| inventory_id | BIGINT | FK → inventory.id, NOT NULL | 재고 ID (옷 한 벌) |
+| returned_at | DATETIME | nullable | 반납 확인 시각 — NULL이면 미반납 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+
+**유니크 제약:** `(reservation_id, inventory_id)`
+
+> 1차 `order_item`과 같은 역할 — 예약 1건에 재고 여러 벌 연결 (V3 추가)
+> 출발(RESERVED→IN_TRANSIT) / 취소(RESERVED→AVAILABLE) / 반납 확인 / 반납 지연 알림 대상을 이 테이블로 조회
+> 반납 확인 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `returned_at IS NULL`
+> `returned_at`이 필요한 이유: 같은 재고가 반납 후 다른 예약으로 다시 나가면, 옛 예약(COMPLETED)과의 연결이 남아 있어 반납 대상으로 잘못 잡힘
+
 ### styling_session (스타일링 세션)
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |

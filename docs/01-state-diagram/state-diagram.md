@@ -81,6 +81,7 @@ AVAILABLE ──────────► RESERVED ─────────
 - 예약 COMPLETED 시 미구매 재고 → IN_TRANSIT 유지 (스타일리스트가 센터로 복귀 중) — 2차 전용
   - 가는 중/돌아오는 중 구분: 별도 상태 없이 예약 상태로 판단 (IN_PROGRESS = 가는 중, COMPLETED = 돌아오는 중)
   - 센터 도착 후 BO에서 직원이 직접 보고 **반납 확인(검수)** → 정상: AVAILABLE / 불량: UNSELLABLE
+  - 반납 확인 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `reservation_item.returned_at` 비어 있음 → 확인 시 `returned_at` 기록
   - 반납 확인 전까지 판매가능 재고에 포함되지 않음 → 차에 있는 옷이 1차 온라인에서 팔리는 문제 방지
   - 배치: COMPLETED 후 일정 시간(예: 24시간)이 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock). 상태 자동 변경 안 함 (실물 확인 필요)
 - **확장 포인트** (현재 범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 미반납 재고 분실 처리 — 2차 전용
@@ -150,7 +151,8 @@ CANCELLED
 **정책**
 - 예약 생성 = 즉시 CONFIRMED (동기 트랜잭션, PENDING 없음)
 - 고객이 선택한 StylistSchedule 슬롯 → is_booked = true 처리 (동시성 제어 필수 — 중복 예약 방지)
-- CONFIRMED 시점 → 찜 목록 기반 재고 RESERVED 처리
+- CONFIRMED 시점 → 찜 목록 기반 재고 RESERVED 처리 + `reservation_item`에 예약 ↔ 재고 연결 저장
+  - 이후 출발/취소/반납 확인은 `reservation_item`으로 대상 재고를 찾음
 - IN_PROGRESS 시점 → 재고 IN_TRANSIT 처리 (스타일리스트 출발)
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
 - 관리자(MANAGER)가 부득이한 사유로 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
