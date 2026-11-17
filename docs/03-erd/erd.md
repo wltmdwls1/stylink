@@ -238,6 +238,8 @@ Product 1 ─── N OrderItem
 | id | BIGINT | PK, AUTO_INCREMENT | 주문 ID |
 | order_no | VARCHAR(30) | UNIQUE, NOT NULL | 주문번호 (예: ORD-20260513-00001) |
 | member_id | BIGINT | FK → member.id, NOT NULL | 고객 ID |
+| order_type | VARCHAR(20) | NOT NULL, DEFAULT 'ONLINE' | 주문 유형 — ONLINE(1차 온라인) / FIELD(2차 출장 현장) (V6 추가) |
+| reservation_id | BIGINT | FK → reservation.id, nullable | 2차 현장 주문일 때만 — 출장 예약 연결 (V6 추가) |
 | status | VARCHAR(30) | NOT NULL | 주문상태 Enum |
 | total_price | BIGINT | NOT NULL | 총 주문금액 |
 | version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락 — 결제 vs 결제대기 만료 배치 동시 처리 방지 (V4 추가) |
@@ -250,6 +252,9 @@ Product 1 ─── N OrderItem
 
 **주문 상태값:**
 `PENDING` / `PAID` / `IN_PREPARATION` / `IN_DELIVERY` / `DELIVERED` / `FAILED` / `CANCELLED` / `RETURN_REQUESTED` / `RETURNED`
+
+> 2차 FIELD 주문은 `PENDING → PAID`(끝) / `FAILED`만 사용 — 배송 없음, 반품 불가(확장 포인트)
+> 결제대기 15분 만료 배치는 `order_type = 'ONLINE'`만 대상
 
 ---
 
@@ -421,7 +426,7 @@ Product 1 ─── N OrderItem
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 
-> Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 세션 조회 + 현장 구매확정 입력
+> Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 예약 조회 + 현장 구매확정 입력
 
 ### stylist_schedule (스타일리스트 가능 일정)
 
@@ -447,6 +452,8 @@ Product 1 ─── N OrderItem
 | scheduled_at | DATETIME | NOT NULL | 출장 예정 일시 |
 | zip_code | VARCHAR(10) | NOT NULL | 출장지 우편번호 — 서비스 지역 판단 (서울 한정, V2 추가) |
 | address | VARCHAR(255) | | 출장 주소 |
+| started_at | DATETIME | nullable | 출장 시작 시각 — IN_PROGRESS 전환 시 (V6, styling_session에서 이동) |
+| completed_at | DATETIME | nullable | 현장 완료 시각 — COMPLETED 전환 시, 반납 지연 알림 기준 (V6) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 
@@ -470,13 +477,7 @@ Product 1 ─── N OrderItem
 > 반납 확인 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `returned_at IS NULL`
 > `returned_at`이 필요한 이유: 같은 재고가 반납 후 다른 예약으로 다시 나가면, 옛 예약(COMPLETED)과의 연결이 남아 있어 반납 대상으로 잘못 잡힘
 
-### styling_session (스타일링 세션)
+### ~~styling_session (스타일링 세션)~~ — V6에서 삭제
 
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-|--------|------|----------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 세션 ID |
-| reservation_id | BIGINT | FK → reservation.id, UNIQUE, NOT NULL | 예약 (1:1) |
-| started_at | DATETIME | | 세션 시작 일시 |
-| completed_at | DATETIME | | 세션 완료 일시 |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+> 예약 1건 = 세션 1건이고 칸이 `started_at`/`completed_at`뿐이라 `reservation`과 중복 → 두 칸을 `reservation`으로 옮기고 테이블 삭제
+> 현장 판매 기록은 `orders`(order_type = FIELD, reservation_id)가 담당

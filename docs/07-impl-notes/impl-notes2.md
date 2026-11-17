@@ -176,7 +176,7 @@ cancelOrder():
 검증: 결제 성공 플로우 / 결제 실패(사유별) → Payment FAILED + fail_code 저장 + Inventory AVAILABLE 복구 / 타임아웃 → 망취소 호출 + FAILED / 실패해도 outbound_api_log 남음 / 만료된 주문 결제 요청 거절 / 결제 중 만료 → 환불
 
 ### Step 5-1: batch — 결제대기 만료 (1차 전용)
-- 주문 PENDING 15분 초과 → Order FAILED + `release()` (reason: RELEASED_BY_BATCH_EXPIRED)
+- 주문 PENDING 15분 초과 **+ `orderType = ONLINE`** → Order FAILED + `release()` (reason: RELEASED_BY_BATCH_EXPIRED)
 - 화면 타이머는 10분 (안내용), 서버 기준은 15분 (5분 여유 — 결제 진행 중 만료 방지)
 - **결제 vs 배치 동시 처리**: 주문 PENDING→PAID / PENDING→FAILED 중 먼저 바꾼 쪽만 성공해야 함
   - `Order`에 `@Version` 적용 (V4) → 늦게 저장하는 쪽에서 낙관적 락 예외 발생
@@ -207,28 +207,40 @@ cancelOrder():
 
 ## Phase C — 2차 O2O (1차 완성 후)
 
-1. `InventoryService.transit()` 추가 — RESERVED→IN_TRANSIT + InventoryLog
+1. `InventoryService` 2차 메서드 추가 (1차 `reserve()`/`sell()`은 AVAILABLE/RESERVED 기준이라 현장 재고(IN_TRANSIT)에 못 씀)
+   - `transit()` — RESERVED→IN_TRANSIT + InventoryLog (reason: IN_TRANSIT_BY_RESERVATION)
+   - 현장 판매용 메서드 — IN_TRANSIT→SOLD + InventoryLog (reason: SOLD_BY_FIELD_SALE) / 이름은 구현 시 결정
+   - 현장 결제 실패에 `release()` 쓰지 말 것 (AVAILABLE이 되면 차에 있는 옷이 온라인에서 팔림)
 2. `ReservationService`:
    - 예약 생성 전: 출장지 우편번호 검증 (서울만 — 앞 두 자리 01~08, 아니면 예외)
    - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + 찜 상품마다 AVAILABLE 재고 1벌 `reserve()` + `ReservationItem` 저장
    - CONFIRMED → CANCELLED: `ReservationItem`으로 재고 찾아 `release()` (RESERVED→AVAILABLE)
-   - CONFIRMED → IN_PROGRESS: `ReservationItem`으로 재고 찾아 `transit()`
-   - IN_PROGRESS → COMPLETED: 현장 판매 건 `sell()` / 미구매 건 IN_TRANSIT 유지 (센터 복귀 중)
+   - CONFIRMED → IN_PROGRESS: `ReservationItem`으로 재고 찾아 `transit()` + `startedAt` 기록
+   - IN_PROGRESS → COMPLETED: `completedAt` 기록 / 재고는 이 시점에 안 바꿈 (판매 건은 결제 성공 때 이미 SOLD, 나머지는 IN_TRANSIT 유지)
 3. Stylist 계정 인증 (bo-api):
    - Stylist 로그인 엔드포인트 추가 (Admin 로그인 패턴 재사용)
-   - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 세션 조회 + 구매확정)
-4. `StylingSessionService` (bo-api, Stylist 계정으로 호출):
-   - 구매확정 상품 → `OrderService.createOrder()` → Payment 프로세스 (1차 동일)
-   - 미구매 상품 → 상태 변경 없음 (IN_TRANSIT 유지, 반납 확인 대기)
+   - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 예약 조회 + 구매확정)
+4. 현장 판매 (bo-api, Stylist 계정으로 호출) — 옛 `StylingSessionService` 역할 (V6에서 `styling_session` 삭제)
+   - 현장 주문 생성 — 1차 `createOrder()`와 **별도 메서드** (재고를 새로 잡지 않음)
+     - 검증: 예약 IN_PROGRESS + 이 예약의 `ReservationItem`에 있는 옷 + 재고 IN_TRANSIT + `returnedAt IS NULL` + 이미 판매(PAID)된 옷 아님
+     - Order(`orderType = FIELD`, `reservationId`, PENDING) + OrderItem + OrderHistory
+   - 결제 → Payment 프로세스 (1차 `pay()` 저장 방식 동일)
+     - 성공: Order PAID(끝) + 재고 IN_TRANSIT → SOLD
+     - 실패: Payment/Order FAILED + fail_code 저장, **재고는 IN_TRANSIT 그대로** (`release()` 금지)
+     - 다시 결제하려면 현장 주문 새로 생성 (주문 1건 = 결제 1건)
+   - 미구매 → 주문 만들지 않음, 상태 변경 없음 (IN_TRANSIT 유지, 반납 확인 대기)
+     - 미구매를 결제 실패로 기록하지 말 것 (가짜 주문/결제, 결제 실패 통계 오염)
+   - 1차 결제대기 만료 배치는 `orderType = ONLINE`만 조회하도록 (Step 5-1)
+   - 현장 판매 반품 불가 — 확장 포인트
 5. 반납 확인 (bo-api, 센터 직원이 실물 검수 후 호출):
    - 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `ReservationItem.returnedAt IS NULL` (가는 중인 재고는 거부)
    - 정상 → IN_TRANSIT→AVAILABLE (reason: RESTORED_BY_RETURN_CHECK)
    - 불량 → IN_TRANSIT→UNSELLABLE (reason: UNSELLABLE_BY_RETURN_CHECK)
    - 공통: `ReservationItem.returnedAt` 기록
 6. batch: 반납 지연 알림
-   - COMPLETED 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT + `returnedAt IS NULL`인 재고 → 관리자 알림(Mock)
+   - `reservation.completedAt` 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT + `returnedAt IS NULL`인 재고 → 관리자 알림(Mock)
    - 상태는 바꾸지 않음 (실물 확인은 사람이 해야 함)
-- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리
+- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내), 미구매 사유 통계
 
 ---
 

@@ -61,10 +61,10 @@ AVAILABLE ──────────► RESERVED ─────────
 
 ### 2차 (O2O 출장 서비스)
 ```
-            예약확정              스타일리스트 이동              현장판매완료         반품완료
-AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD ──────────► AVAILABLE
+            예약확정              스타일리스트 이동         현장 결제 성공
+AVAILABLE ──────────► RESERVED ────────────────► IN_TRANSIT ──────────► SOLD   (현장 판매 반품 불가 — 확장 포인트)
     ▲                     │                           │
-    │                    취소              미구매 (COMPLETED 후 센터 복귀)
+    │                    취소           미구매 / 현장 결제 실패 (COMPLETED 후 센터 복귀)
     └─────────────────────┘                           │
                                                  BO 반납 확인 (검수)
                                                 ┌─────┴─────┐
@@ -95,7 +95,12 @@ AVAILABLE ──────────► RESERVED ─────────
   - 배치: COMPLETED 후 일정 시간(예: 24시간)이 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock). 상태 자동 변경 안 함 (실물 확인 필요)
 - **확장 포인트** (현재 범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 미반납 재고 분실 처리 — 2차 전용
 - 동시 주문 발생 시 → 한 건만 RESERVED 성공, 나머지는 실패 처리 (낙관적 락)
-- 반품 완료 시 → SOLD → AVAILABLE 복구 — 1차/2차 공통
+- **2차 현장 판매** — 2차 전용
+  - 현장 재고는 IN_TRANSIT → 1차 `reserve()`/`sell()`(AVAILABLE/RESERVED 기준) 대신 현장 전용 메서드 사용
+  - 현장 주문 생성 시 재고를 새로 잡지 않음 (이미 이 예약에 묶여 차에 실린 옷) — 상태 IN_TRANSIT 그대로
+  - 현장 결제 성공 → IN_TRANSIT → SOLD (reason: `SOLD_BY_FIELD_SALE`)
+  - 현장 결제 실패 → **재고 그대로 IN_TRANSIT** (`release()` 금지 — AVAILABLE이 되면 차에 있는 옷이 온라인에서 팔림) → 미구매와 같이 센터 반납 검수
+- 반품 완료 시 → SOLD → AVAILABLE 복구 — **1차 전용** (2차 현장 판매는 반품 불가, 확장 포인트)
 
 ---
 
@@ -138,6 +143,14 @@ PENDING ──────────► PAID ───────────
   - PG 결제는 성공했는데 주문이 이미 FAILED(만료) → 주문을 되살리지 않고 **PG 취소(전액 환불) + 안내**
   - 확장 포인트: 재고가 남아 있으면 주문을 되살리는 방식 (FAILED→PAID 예외 전이, 부분 재고 처리 문제로 제외)
 - FAILED는 끝 상태 — 다시 사려면 새 주문
+- **주문 유형** `order_type` (V6): `ONLINE`(온라인, 1차) / `FIELD`(현장, 2차)
+  - 결제대기 15분 만료 배치는 **ONLINE만** 대상 (현장 주문은 고객 앞에서 바로 결제)
+  - FIELD 주문은 `reservation_id`로 어느 출장 예약에서 나왔는지 연결 (ONLINE은 비어 있음)
+- **2차 현장 주문(FIELD) 흐름**: `PENDING(결제대기) → PAID(결제완료)` 에서 끝 / 실패 시 `FAILED(결제실패)`
+  - 배송 없음 → IN_PREPARATION / IN_DELIVERY / DELIVERED 안 거침
+  - 현장 판매 반품 불가 → RETURN_REQUESTED / RETURNED 없음 (확장 포인트: 결제 후 7일 이내 반품 등)
+  - 결제 실패 후 다시 사려면 현장 주문 새로 생성 (주문 1건 = 결제 1건 유지)
+- 아래 취소/배송/반품 규칙은 **1차(ONLINE) 기준**
 - PAID, IN_PREPARATION 상태에서만 취소 가능
 - **IN_DELIVERY 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
 - 반품 완료 시 → 재고 AVAILABLE 복구 + 환불(REFUND) 처리
@@ -162,7 +175,7 @@ CANCELLED
 |---------------|--------|------|
 | `CONFIRMED`   | 예약확정 | 고객이 가능 일정 선택 시 즉시 자동 확정 — StylistSchedule BOOKED + 재고 RESERVED 처리 |
 | `IN_PROGRESS` | 진행중 | 스타일리스트 출장 시작 → 재고 IN_TRANSIT 처리, 이후 취소 불가 |
-| `COMPLETED`   | 완료 | 스타일링 세션 종료 (개별 재고별 판매/미판매 처리) |
+| `COMPLETED`   | 완료 | 현장 스타일링 종료 (`completed_at` 기록) — 옷별로 구매/미구매가 갈림 |
 | `CANCELLED`   | 취소 | 예약 취소 (IN_PROGRESS 이전만 가능) |
 
 **정책**
@@ -173,9 +186,18 @@ CANCELLED
 - IN_PROGRESS 시점 → 재고 IN_TRANSIT 처리 (스타일리스트 출발)
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
 - 관리자(MANAGER)가 부득이한 사유로 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
-- COMPLETED = 스타일링 세션 종료를 의미 (모든 상품 판매 완료가 아님)
-  - 구매 확정 상품 → 현장 주문 생성 → 재고 SOLD
-  - 미구매 상품 → 재고 IN_TRANSIT 유지 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
+- 시각 기록 (V6, 옛 `styling_session` 테이블에서 이동): IN_PROGRESS 전환 시 `started_at`, COMPLETED 전환 시 `completed_at`
+  - `completed_at` = 반납 지연 알림 배치의 "완료 후 24시간" 기준
+- COMPLETED = 현장 스타일링 종료를 의미 (모든 상품 판매 완료가 아님)
+  - 현장에서 옷이 갈리는 3가지 경우
+    | 경우 | 뜻 | 주문 | 결제 | 재고 |
+    |------|----|------|------|------|
+    | 구매 | 사기로 함 + 결제 성공 | FIELD 주문 PAID | SUCCESS | IN_TRANSIT → SOLD |
+    | 결제 실패 | 사려 했는데 카드가 안 됨 | FIELD 주문 FAILED | FAILED + 사유 | IN_TRANSIT 유지 |
+    | 미구매 | 입어봤는데 안 삼 | **만들지 않음** | 없음 | IN_TRANSIT 유지 |
+  - 결제 실패·미구매 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
+  - 미구매를 결제 실패로 기록하지 않음 — 가짜 주문/결제가 생기고 결제 실패 통계가 오염됨
+  - 미구매 따로 기록 안 함: "이 예약의 `reservation_item`에 있는데 현장 주문(PAID)에 없는 옷" = 미구매 (미구매 사유 통계는 확장 포인트)
 - 취소 시 재고 복구
   - CONFIRMED 취소 → RESERVED 해제 → AVAILABLE
   - IN_TRANSIT 중 관리자 취소 불가 (IN_PROGRESS 이후 취소 불가 정책 동일)
@@ -269,7 +291,10 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
   - 재시도 없음 — 주문 1건당 결제 1건 (`payment.order_id` UNIQUE), 다시 사려면 새 주문
   - 확장 포인트: 같은 주문 재결제(다른 카드), 망취소 실패 시 PG 거래 조회 배치(대사)
 - 1차 결제 시간 초과로 주문이 이미 FAILED인데 PG 성공 응답이 오면 → PG 취소(전액 환불) — 주문 정책 참고
-- **2차 현장 결제**: 스타일리스트가 bo-api로 구매 상품 확정 → Order 생성 → 동일 Payment 흐름 적용
+- **2차 현장 결제**: 스타일리스트가 bo-api로 구매 상품 확정 → FIELD 주문 생성 → 동일 Payment 흐름 적용
+  - 결제 성공/실패 저장 방식은 1차와 같음 (FAILED + fail_code 정상 저장)
+  - **차이: 실패해도 재고 `release()` 안 함** — IN_TRANSIT 유지 → 센터 반납 검수
+  - 현장 결제 후 취소/환불(반품) 없음 — 확장 포인트
 
 ---
 

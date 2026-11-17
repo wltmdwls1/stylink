@@ -27,7 +27,6 @@
 | StylistSchedule | 스타일리스트 가능 일정 | 2차 |
 | Reservation | 예약 | 2차 |
 | ReservationItem | 예약 상품 (예약 ↔ 재고 연결) | 2차 |
-| StylingSession | 스타일링 세션 | 2차 |
 | OutboundApiLog | 외부 API 요청 로그 | 1차/2차 공통 |
 | InboundApiLog | 외부 API 수신 로그 | 1차/2차 공통 |
 
@@ -59,7 +58,7 @@
 |------|--------|----------|
 | `SUPER_ADMIN` | 최고관리자 | 전체 접근 |
 | `MANAGER` | 매니저 | 주문/재고/예약/스타일리스트 배정 관리 |
-| `STYLIST` | 스타일리스트 | 담당 세션 조회 + 현장 구매확정 |
+| `STYLIST` | 스타일리스트 | 담당 예약 조회 + 현장 구매확정 |
 
 ---
 
@@ -139,12 +138,16 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 
 ### Order (주문)
 **책임:** 주문 생성 및 상태 관리
-- 주문 단위의 전체 흐름 관리 (PENDING → DELIVERED)
+- 주문 단위의 전체 흐름 관리
 - 하나의 주문번호로 전체 진행 상황 추적
-- IN_DELIVERY 이후 취소 불가
+- **주문 유형** `orderType`: `ONLINE`(온라인, 1차) / `FIELD`(현장, 2차)
+  - 1차 ONLINE: PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED, IN_DELIVERY 이후 취소 불가
+  - 2차 FIELD: PENDING → PAID 에서 끝 (배송 없음, 반품 불가 — 확장 포인트), 실패 시 FAILED
+  - 결제대기 15분 만료 배치는 ONLINE만 대상
 
 **주요 관계:**
 - `Member` 가 생성
+- `Reservation` 에서 생성 (2차 FIELD만, N:1 — 결제 실패 후 재시도하면 한 예약에 현장 주문 여러 건 가능)
 - `OrderItem` 포함 (1:N)
 - `OrderHistory` 로 이력 관리
 - `Payment` 와 1:1
@@ -232,7 +235,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - 고객이 예약 전 스타일리스트 프로필 조회 가능
 - 등록/수정은 bo-api(MANAGER)만 가능
 - **자체 계정 보유 (email + password)** — Admin과 별도 계정 체계
-- bo-api에 Stylist 계정으로 로그인 → 담당 세션 조회 + 현장 구매확정 입력 (PDA 역할)
+- bo-api에 Stylist 계정으로 로그인 → 담당 예약 조회 + 현장 구매확정 입력 (PDA 역할)
 - Admin(MANAGER) 로그인과 동일한 구조 재사용, 접근 가능 엔드포인트만 분리
 
 **주요 관계:**
@@ -268,7 +271,15 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - `Wishlist` 기반 상품 목록 참조
 - `ReservationItem` 포함 (1:N) — 이 예약에 묶인 재고
 - `Inventory` RESERVED/IN_TRANSIT 처리 (`ReservationItem` 경유)
-- `StylingSession` 으로 진행
+- `Order` (FIELD) 생성 — 현장 판매 시 (1:N)
+
+**현장 진행 (옛 StylingSession 역할을 Reservation이 맡음 — V6에서 `styling_session` 삭제):**
+- 출장 시작(IN_PROGRESS) 시 `startedAt`, 현장 종료(COMPLETED) 시 `completedAt` 기록
+- 스타일리스트가 bo-api로 옷별 구매/미구매 결정 (PDA 역할 대체)
+  - 구매 → FIELD 주문 생성 → Payment(PENDING→SUCCESS) → 재고 IN_TRANSIT → SOLD
+  - 결제 실패 → 주문/결제 FAILED 저장, 재고 IN_TRANSIT 유지
+  - 미구매 → 주문 만들지 않음, 재고 IN_TRANSIT 유지
+  - 결제 실패·미구매 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
 
 ---
 
@@ -284,20 +295,6 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 
 ---
 
-### StylingSession (스타일링 세션)
-**책임:** 현장 스타일링 진행 1회 기록 및 판매 관리
-- 스타일리스트 출장 현장에서의 스타일링 세션 1회 기록
-- 스타일리스트가 bo-api로 상품별 구매/미구매 결정 (PDA 역할 대체)
-  - 구매 확정 → 현장 주문(Order) 생성 → Payment 프로세스(PENDING→SUCCESS) → 재고 SOLD
-  - 미구매 → 재고 IN_TRANSIT 유지 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
-- 스타일링 세션 완료 처리
-
-**주요 관계:**
-- `Reservation` 에서 시작 (1:1)
-- `Order` 생성 (현장 판매 시)
-- `Inventory` SOLD / AVAILABLE 처리
-
----
 
 ### OutboundApiLog (외부 API 요청 로그)
 **책임:** 우리가 외부 Mock으로 보낸 API 요청 기록
@@ -338,8 +335,8 @@ Member ──── Reservation ──── Stylist ──── StylistSchedul
                 │
                 ├──── Wishlist (찜 목록 참조)
                 ├──── ReservationItem ──── Inventory (RESERVED / IN_TRANSIT)
-                └──── StylingSession ──── Order (현장 판매)
-                                      └── Inventory (SOLD / AVAILABLE)
+                └──── Order (FIELD, 현장 판매) ──── Payment
+                         └── 결제 성공 시 Inventory IN_TRANSIT → SOLD
 ```
 
 ---

@@ -45,4 +45,12 @@ public class Reservation extends BaseEntity {
     // 출장 주소
     @Column(name = "address", length = 255)
     private String address;
+
+    // 출장 시작 시각 — IN_PROGRESS 전환 시 기록 (V6, styling_session에서 이동)
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    // 현장 완료 시각 — COMPLETED 전환 시 기록 (V6) / 반납 지연 알림 배치의 "완료 후 24시간" 기준
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 }

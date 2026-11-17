@@ -151,6 +151,14 @@ public enum OrderStatus {
 }
 ```
 
+### OrderType (V6)
+```java
+public enum OrderType {
+    ONLINE("온라인"),   // 1차 — 결제 → 배송, 결제대기 만료 배치 대상
+    FIELD("현장");      // 2차 — 출장 현장 구매확정 → 결제, 배송 없음, PAID에서 끝
+}
+```
+
 ### PaymentStatus
 ```java
 public enum PaymentStatus {
@@ -509,6 +517,12 @@ public class Order extends BaseEntity {
     private Member member;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private OrderType orderType;   // ONLINE(1차) / FIELD(2차) — V6
+
+    private Long reservationId;    // 2차 FIELD일 때만 — 출장 예약 연결 (V6)
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private OrderStatus status;
 
@@ -521,6 +535,7 @@ public class Order extends BaseEntity {
 - 테이블명 `orders` — `order`는 SQL 예약어
 - `orderNo` 생성 규칙: `ORD-{yyyyMMdd}-{5자리 시퀀스}`
 - OrderItem, OrderHistory, Payment, Delivery는 각 Repository에서 order_id로 조회
+- FIELD 주문은 Delivery 없음, `PENDING → PAID`(끝) / `FAILED`만 사용
 
 ---
 
