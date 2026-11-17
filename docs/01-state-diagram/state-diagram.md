@@ -129,7 +129,7 @@ PENDING ──────────► PAID ───────────
 | `RETURNED`         | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
 
 **정책**
-- PENDING → 결제 실패 시 재고 RESERVED 해제 (AVAILABLE 복구)
+- PENDING → 결제 실패 시 주문 FAILED 저장 + 재고 RESERVED 해제(release → AVAILABLE) — 롤백이 아니라 정상 커밋 (결제 정책 참고)
 - **결제 시간 제한**: 화면 타이머 10분 (끝나면 결제창 닫힘 — 안내용) / 서버 만료 기준 15분 (판단 기준)
   - 서버에 5분 여유를 두는 이유: 9분 59초에 누른 결제가 PG 응답을 기다리는 동안 만료되지 않도록
   - 강제 종료/네트워크 끊김 등으로 결제를 못 한 주문도 서버 배치가 15분 후 FAILED 처리 + 재고 복구
@@ -257,7 +257,17 @@ SUCCESS ──환불요청──► REFUND_REQUESTED ──환불완료──►
 **정책 (Mock 기준)**
 - **IN_DELIVERY 이전** → 취소(CANCEL) 처리
 - **IN_DELIVERY 이후** → 환불(REFUND) 처리 (취소와 명확히 구분)
-- 결제 실패 시 → 주문 FAILED + 재고 RESERVED 해제 (전체 롤백)
+- **1차 결제 실패** → 예외 롤백이 아니라 **실패 결과를 정상 저장(커밋)**
+  - Payment FAILED + `fail_code`/`fail_message` 저장 → Order FAILED → 재고 `release()` (RESERVED→AVAILABLE, reason: `RELEASED_BY_ORDER_FAIL`)
+  - 실패 종류별 처리
+    | 종류 | 예시 | 돈이 빠졌나 | 처리 |
+    |------|------|------------|------|
+    | PG 거절 | 도난카드, 한도초과, 잔액부족, 비밀번호 오류 | 안 빠짐 | 바로 FAILED (fail_code = PG 에러코드) |
+    | 전송 실패 | PG 서버 연결 안 됨 | 안 빠짐 | 바로 FAILED (fail_code = `PG_CONNECTION_FAILED`) |
+    | 응답 없음 (타임아웃) | 요청은 갔는데 답이 없음 | **모름** | **망취소**(PG 취소 요청) 후 FAILED (fail_code = `PG_TIMEOUT`) |
+  - PG 요청/응답 원문은 `outbound_api_log`에 저장 (결제 트랜잭션이 롤백돼도 남아야 함)
+  - 재시도 없음 — 주문 1건당 결제 1건 (`payment.order_id` UNIQUE), 다시 사려면 새 주문
+  - 확장 포인트: 같은 주문 재결제(다른 카드), 망취소 실패 시 PG 거래 조회 배치(대사)
 - 1차 결제 시간 초과로 주문이 이미 FAILED인데 PG 성공 응답이 오면 → PG 취소(전액 환불) — 주문 정책 참고
 - **2차 현장 결제**: 스타일리스트가 bo-api로 구매 상품 확정 → Order 생성 → 동일 Payment 흐름 적용
 

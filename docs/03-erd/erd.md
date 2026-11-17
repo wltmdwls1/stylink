@@ -334,6 +334,8 @@ Product 1 ─── N OrderItem
 | status | VARCHAR(30) | NOT NULL | 결제상태 Enum |
 | amount | BIGINT | NOT NULL | 결제금액 |
 | pg_transaction_id | VARCHAR(100) | | PG사 거래 ID (Mock) |
+| fail_code | VARCHAR(50) | | 결제 실패 코드 (1차, V5) — PG 에러코드 그대로 / PG 응답 없으면 PG_CONNECTION_FAILED, PG_TIMEOUT |
+| fail_message | VARCHAR(255) | | 결제 실패 메시지 (1차, V5) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |

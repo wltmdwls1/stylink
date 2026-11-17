@@ -37,4 +37,13 @@ public class Payment extends BaseEntity {
     // PG사 거래 ID (Mock)
     @Column(name = "pg_transaction_id", length = 100)
     private String pgTransactionId;
+
+    // [1차] 결제 실패 사유 — FAILED일 때만 값 있음 (V5)
+    // PG 거절: PG 에러코드 그대로 / PG 응답 없음: 우리 코드 (PG_CONNECTION_FAILED, PG_TIMEOUT)
+    // PG 요청/응답 원문은 outbound_api_log에 별도 저장
+    @Column(name = "fail_code", length = 50)
+    private String failCode;
+
+    @Column(name = "fail_message", length = 255)
+    private String failMessage;
 }

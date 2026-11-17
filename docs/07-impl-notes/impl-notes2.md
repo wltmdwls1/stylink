@@ -163,9 +163,17 @@ cancelOrder():
 ### Step 5: PaymentService + MockPgGateway
 - `pay(orderId)` — 주문 PENDING 확인 (아니면 거절) → MockPgGateway.charge() → 성공: Order PAID / 실패: Order FAILED + release()
   - PG 성공인데 주문이 이미 FAILED(만료 배치가 먼저 처리) → MockPgGateway.cancel()로 전액 환불 + 안내
+- **결제 실패 = 정상 저장 (예외 롤백 아님)** — Payment FAILED + `failCode`/`failMessage` → Order FAILED + OrderHistory → `release()` (reason: `RELEASED_BY_ORDER_FAIL`, description에 fail_code)
+  - PG 거절 (도난카드/한도초과/잔액부족/비밀번호 오류) → 바로 FAILED, failCode = PG 에러코드 그대로
+  - 전송 실패 (연결 안 됨) → 바로 FAILED, failCode = `PG_CONNECTION_FAILED`
+  - 타임아웃 (결과 모름) → **망취소** `MockPgGateway.cancel()` 후 FAILED, failCode = `PG_TIMEOUT`
+    - 망취소도 실패 → 관리자 확인용 로그/알림 (PG 거래 조회 배치는 확장 포인트)
+  - PG 요청/응답 원문 → `outbound_api_log` (api_type = PG), 별도 트랜잭션(`REQUIRES_NEW`)
 - `refund(paymentId)` — MockPgGateway.cancel() 호출
+- MockPgGateway 시나리오: 성공 / 거절(사유별 코드) / 전송 실패 / 타임아웃
+- 구현 시 결정 (사용자 담당): 실패를 결과값으로 받을지 예외 catch로 받을지, PG 호출을 트랜잭션 안/밖 어디에 둘지, Payment 행을 PG 호출 전(PENDING)에 만들지 후에 만들지
 
-검증: 결제 성공 플로우 / 결제 실패 → Inventory AVAILABLE 복구 / 만료된 주문 결제 요청 거절 / 결제 중 만료 → 환불
+검증: 결제 성공 플로우 / 결제 실패(사유별) → Payment FAILED + fail_code 저장 + Inventory AVAILABLE 복구 / 타임아웃 → 망취소 호출 + FAILED / 실패해도 outbound_api_log 남음 / 만료된 주문 결제 요청 거절 / 결제 중 만료 → 환불
 
 ### Step 5-1: batch — 결제대기 만료 (1차 전용)
 - 주문 PENDING 15분 초과 → Order FAILED + `release()` (reason: RELEASED_BY_BATCH_EXPIRED)

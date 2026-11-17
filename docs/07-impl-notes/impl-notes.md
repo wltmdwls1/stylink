@@ -252,14 +252,18 @@ inventoryLogRepository.save(new InventoryLog(
 
 > 🕐 **적용 시점: OrderService 구현 시 (@Transactional 위치 결정)**
 
-핵심 흐름은 단일 트랜잭션으로 묶을 것.
+요청(단계) 하나 안의 변경은 한 트랜잭션으로 묶을 것. 주문 생성과 결제는 요청이 따로라 트랜잭션도 따로다.
 
 - 주문 생성: 재고 RESERVED + Order 생성 + OrderHistory 기록
 - 결제 완료: Payment SUCCESS + Order PAID + OrderHistory 기록
-- 결제 실패: 전체 롤백 → 재고 자동 복구
+- 결제 실패: **롤백 아님** — Payment FAILED(+fail_code/fail_message) + Order FAILED + OrderHistory + 재고 `release()` 를 정상 커밋
+  - 롤백하면 주문 생성 때 커밋된 RESERVED는 그대로 남고, 실패 기록도 사라짐
+  - 실패를 예외로 던지면 `@Transactional`이 FAILED 저장까지 롤백함 → 실패를 어떻게 전달받을지(결과값/예외 catch)는 구현 시 결정
+  - 상세: `docs/05-interview-qa/design-decisions.md` "결제 실패 처리"
 - 반품 완료: 재고 AVAILABLE 복구 + 환불 처리 연계
 
-부가 작업(알림, 로그)은 트랜잭션 밖에서 처리.
+부가 작업(알림)은 트랜잭션 밖에서 처리.
+PG 요청/응답 로그(`outbound_api_log`)는 본 트랜잭션이 롤백돼도 남아야 하므로 별도 트랜잭션(`REQUIRES_NEW`)으로 저장.
 
 ---
 
