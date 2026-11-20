@@ -215,7 +215,7 @@ CANCELLED
 - 관리자(MANAGER)가 부득이한 사유로 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
 - **들고 가는 옷 개수 상한**: 일반회원 5벌 / VIP 10벌 (`MemberGrade.maxStylingItems`) — 예약 시 찜 목록 중 선택, 초과하면 거절
   - RESERVED 동안 온라인에서 못 파므로 너무 많이 묶이지 않게 제한
-- **출장비 (현장 후불)**: 기본 20,000원 (`application.yml` 설정값), 예약 시점 금액을 `reservation.travel_fee`에 저장
+- **출장비 (현장 후불)**: 기본 20,000원 (`BusinessPolicy.TRAVEL_FEE`), 예약 시점 금액을 `reservation.travel_fee`에 저장
   - 예약 시 결제 없음 (즉시 CONFIRMED 유지) → 예약 취소 시 환불할 것도 없음
   - 출장 끝날 때 옷값과 합쳐 현장 결제 1회 (주문 섹션 FIELD 흐름 참고)
 - **VIP 출장비 1회 무료** (회원당 1회, `member.free_travel_used`)

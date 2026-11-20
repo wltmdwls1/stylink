@@ -233,7 +233,7 @@ cancelOrder():
    - 예약 생성 전: 출장지 우편번호 검증 (서울만 — 앞 두 자리 01~08, 아니면 예외)
    - 예약 생성 전: 찜 목록 중 고른 옷 개수 ≤ `member.grade.maxStylingItems` (일반 5 / VIP 10), 넘으면 예외
    - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + 고른 상품마다 AVAILABLE 재고 1벌 `reserve()` + `ReservationItem` 저장
-     - 출장비: VIP + `freeTravelUsed = false` → `travelFee = 0` + `freeTravelUsed = true` / 그 외 → `travelFee = 설정값(20,000)`
+     - 출장비: VIP + `freeTravelUsed = false` → `travelFee = 0` + `freeTravelUsed = true` / 그 외 → `travelFee = BusinessPolicy.TRAVEL_FEE`(20,000)
      - 동시 무료 예약 2건 → `false → true`가 한 번만 성공하도록 (조건부 UPDATE 또는 락)
    - CONFIRMED → CANCELLED: `ReservationItem`으로 재고 찾아 `release()` (RESERVED→AVAILABLE)
      - 무료 예약이었으면: 고객 취소 + 출장 24시간 전까지 → `freeTravelUsed = false` 복구 / 24시간 이내 → 소진 / MANAGER 취소 → 항상 복구
@@ -270,7 +270,7 @@ cancelOrder():
 7. 스타일리스트 등록/수정 (bo-api, MANAGER):
    - 담당 매니저 `managerId` 필수 — MANAGER 권한 Admin만 지정 가능 (검증)
    - 매니저 퇴사/팀 이동 시 수정 → 이후 알림은 새 매니저에게
-- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내 — 1차 반품 검수 재사용), 미구매 사유 통계, 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 매니저 소속 변경 이력, 일반회원 직전 취소 수수료, 출장비 미수금 처리
+- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내 — 1차 반품 검수 재사용), 미구매 사유 통계, 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 매니저 소속 변경 이력, 일반회원 직전 취소 수수료, 출장비 미수금 처리, 정책 값(출장비·VIP 기준 등) DB 정책 테이블 + BO 수정
 
 ---
 
