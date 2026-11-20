@@ -125,11 +125,11 @@ AVAILABLE ──────────► RESERVED ─────────
            결제요청           준비완료                       출고                  배송완료
 PENDING ──────────► PAID ─────────────► IN_PREPARATION ────────► IN_DELIVERY ──────────► DELIVERED
    │                  │                      │                                               │
-결제실패              취소                    취소                                            반품요청
-   ▼                  ▼                      ▼                                               ▼
- FAILED           CANCELLED              CANCELLED                                    RETURN_REQUESTED
-                                                                                             │
-                                                                                           반품완료
+결제실패              취소                    취소                          반품요청 (7일 이내) ─┤── 7일 경과 (batch)
+   ▼                  ▼                      ▼                                               ▼             ▼
+ FAILED           CANCELLED              CANCELLED                                    RETURN_REQUESTED  PURCHASE_CONFIRMED
+                                                                                             │          (구매확정 → 누적 구매금액 반영)
+                                                                                     반품 검수 완료
                                                                                              ▼
                                                                                           RETURNED
 ```
@@ -140,7 +140,8 @@ PENDING ──────────► PAID ───────────
 | `PAID`             | 결제완료 | 결제 완료 |
 | `IN_PREPARATION`   | 상품준비중 | 상품 준비 중 |
 | `IN_DELIVERY`      | 배송중 | 배송 시작 → 이후 취소 불가 |
-| `DELIVERED`        | 배송완료 | 배송 완료 |
+| `DELIVERED`        | 배송완료 | 배송 완료 → 7일 이내 반품 요청 가능 |
+| `PURCHASE_CONFIRMED` | 구매확정 | 배송완료 7일 경과(batch) → 반품 불가, 누적 구매금액 반영 **(1차 전용)** |
 | `FAILED`           | 결제실패 | 결제 실패 |
 | `CANCELLED`        | 주문취소 | 주문 취소 (IN_DELIVERY 이전만 가능) |
 | `RETURN_REQUESTED` | 반품요청 | 배송 완료 후 반품 요청 |
@@ -160,12 +161,23 @@ PENDING ──────────► PAID ───────────
   - 결제대기 15분 만료 배치는 **ONLINE만** 대상 (현장 주문은 고객 앞에서 바로 결제)
   - FIELD 주문은 `reservation_id`로 어느 출장 예약에서 나왔는지 연결 (ONLINE은 비어 있음)
 - **2차 현장 주문(FIELD) 흐름**: `PENDING(결제대기) → PAID(결제완료)` 에서 끝 / 실패 시 `FAILED(결제실패)`
-  - 배송 없음 → IN_PREPARATION / IN_DELIVERY / DELIVERED 안 거침
+  - **현장 결제 1회**: 출장 끝날 때 스타일리스트가 고른 옷 합계 + 출장비(`reservation.travel_fee`)를 FIELD 주문 1건으로 결제
+    - 산 옷이 없으면 출장비만 결제 / 출장비 0원(VIP 무료)이고 산 옷도 없으면 주문 안 만듦
+    - 예약 1건당 PAID 현장 주문 최대 1건
+  - PAID 즉시 누적 구매금액 반영 (반품 불가라 구매확정 대기 없음) — 출장비는 제외
+  - 배송 없음 → IN_PREPARATION / IN_DELIVERY / DELIVERED / PURCHASE_CONFIRMED 안 거침
   - 현장 판매 반품 불가 → RETURN_REQUESTED / RETURNED 없음 (확장 포인트: 결제 후 7일 이내 반품 등)
   - 결제 실패 후 다시 사려면 현장 주문 새로 생성 (주문 1건 = 결제 1건 유지)
 - 아래 취소/배송/반품 규칙은 **1차(ONLINE) 기준**
 - PAID, IN_PREPARATION 상태에서만 취소 가능
 - **IN_DELIVERY 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
+- **반품 가능 기간: 배송완료(`delivery.delivered_at`) 후 7일** (전자상거래법 청약철회 기간과 동일)
+- **구매확정 (batch)**: DELIVERED 상태로 7일 경과 → PURCHASE_CONFIRMED + 누적 구매금액 반영 + 등급 재계산
+  - RETURN_REQUESTED 주문은 대상 아님 (DELIVERED만 조회)
+  - 반품 요청 vs 구매확정 batch 동시 실행 → 주문 `@Version`으로 한쪽만 성공
+  - 구매확정 후에만 누적 반영 → 반품으로 차감할 일이 없음 (VIP 강등 없음)
+  - 고객 화면 안내용: API 응답에 "반영 예정 금액"(구매확정 전 DELIVERED 주문 합계) 제공 → "7일 뒤 반영됩니다" 표시
+  - 확장 포인트: 고객이 7일 전 직접 구매확정
 - **반품 흐름**: 반품요청(RETURN_REQUESTED) → 택배 회수 도착(배송 RETURNED, 주문은 그대로) → BO 반품 검수 → 주문 RETURNED + 재고 AVAILABLE(정상) / UNSELLABLE(불량) + 환불(REFUND)
   - 환불은 **검수 후** (검수 전 환불하면 불량일 때 되돌릴 수 없음)
   - 불량이어도 환불 진행 — 고객 과실 판단/반품 거절은 확장 포인트
@@ -201,13 +213,23 @@ CANCELLED
 - IN_PROGRESS 시점 → 재고 IN_TRANSIT 처리 (스타일리스트 출발)
 - **IN_PROGRESS 이후 취소 불가** (현장 진행 중)
 - 관리자(MANAGER)가 부득이한 사유로 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
+- **들고 가는 옷 개수 상한**: 일반회원 5벌 / VIP 10벌 (`MemberGrade.maxStylingItems`) — 예약 시 찜 목록 중 선택, 초과하면 거절
+  - RESERVED 동안 온라인에서 못 파므로 너무 많이 묶이지 않게 제한
+- **출장비 (현장 후불)**: 기본 20,000원 (`application.yml` 설정값), 예약 시점 금액을 `reservation.travel_fee`에 저장
+  - 예약 시 결제 없음 (즉시 CONFIRMED 유지) → 예약 취소 시 환불할 것도 없음
+  - 출장 끝날 때 옷값과 합쳐 현장 결제 1회 (주문 섹션 FIELD 흐름 참고)
+- **VIP 출장비 1회 무료** (회원당 1회, `member.free_travel_used`)
+  - 예약 시점 등급이 VIP + 아직 미사용 → `travel_fee = 0`, `free_travel_used = true`
+  - 무료 예약 취소 시: 출장 **24시간 전까지** 고객 취소 → 복구 / **24시간 이내** 고객 취소 → 소진 (스타일리스트 일정을 이미 비워둠) / 회사 사정(MANAGER) 취소 → 항상 복구
+  - 동시 무료 예약 2건 → `false → true` 변경이 한 번만 성공해야 함 (조건부 UPDATE 또는 락)
+  - 확장 포인트: 일반회원 직전 취소 수수료, 출장비 미수금 처리
 - 시각 기록 (V6, 옛 `styling_session` 테이블에서 이동): IN_PROGRESS 전환 시 `started_at`, COMPLETED 전환 시 `completed_at`
   - `completed_at` = 반납 지연 알림 배치의 "완료 후 24시간" 기준
 - COMPLETED = 현장 스타일링 종료를 의미 (모든 상품 판매 완료가 아님)
   - 현장에서 옷이 갈리는 3가지 경우
     | 경우 | 뜻 | 주문 | 결제 | 재고 |
     |------|----|------|------|------|
-    | 구매 | 사기로 함 + 결제 성공 | FIELD 주문 PAID | SUCCESS | IN_TRANSIT → SOLD |
+    | 구매 | 사기로 함 + 현장 결제 성공 | FIELD 주문 PAID | SUCCESS | IN_TRANSIT → SOLD |
     | 결제 실패 | 사려 했는데 카드가 안 됨 | FIELD 주문 FAILED | FAILED + 사유 | IN_TRANSIT 유지 |
     | 미구매 | 입어봤는데 안 삼 | **만들지 않음** | 없음 | IN_TRANSIT 유지 |
   - 결제 실패·미구매 → 센터 도착 후 BO 반납 확인(검수) → 정상: AVAILABLE / 불량: UNSELLABLE
@@ -250,12 +272,18 @@ NORMAL ──누적구매 100만원 이상──► VIP
 
 | 상태         | 한글명 | 설명 |
 |------------|--------|------|
-| `NORMAL`   | 일반회원 | 기본 등급 |
-| `VIP`      | VIP | 누적 구매 100만원 이상 달성 |
+| `NORMAL`   | 일반회원 | 기본 등급 — 출장 시 옷 최대 5벌 |
+| `VIP`      | VIP | 누적 구매 100만원 이상 달성 — 출장 시 옷 최대 10벌 + 출장비 1회 무료 |
 
 **정책**
 - 본인인증은 전화번호 기반 Mock 처리
-- VIP 등급은 주문 완료 시점 체크 또는 배치 처리
+- **누적 구매금액 반영 시점** (상품 금액만, 출장비 제외)
+  - 1차 ONLINE: 구매확정(PURCHASE_CONFIRMED) 시 — 배송완료 7일 후 batch
+  - 2차 FIELD: 현장 결제 PAID 즉시 — 반품 불가라 대기 없음
+  - 반영 후 차감 없음 (구매확정 전에만 반품 가능)
+- **등급 판정**: 누적액이 바뀔 때 그 자리에서 재계산 (100만원 이상 → VIP), 별도 배치 없음 / 강등 없음
+  - 같은 회원 누적액 동시 갱신(구매확정 batch vs 현장 결제) → `+금액` 원자적 UPDATE 등으로 갱신 손실 방지
+  - 확장 포인트: 연간 등급 갱신(최근 1년 기준), 등급별 추가 혜택
 - 탈퇴 시 개인정보 처리 정책 별도 정의 필요
 - UNVERIFIED 상태에서도 로그인은 가능하나, 주문/예약 등 핵심 기능 제한
 
@@ -265,7 +293,7 @@ NORMAL ──누적구매 100만원 이상──► VIP
 
 > Mock 기반 처리 / 1차/2차 공통
 > - **1차**: 고객이 장바구니 → 주문 → 결제 진행
-> - **2차**: 스타일리스트가 bo-api로 상품별 구매 확정 후 Payment 프로세스 트리거 (PDA 대체)
+> - **2차**: 출장 끝날 때 스타일리스트가 bo-api로 현장 결제 요청 (고른 옷 + 출장비, 1회) → Payment 프로세스 (PDA 대체)
 
 ```
 PENDING ──결제요청──► SUCCESS
@@ -346,7 +374,7 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 |---------|-------------|----------|----------|
 | 재고 (1차) | AVAILABLE → RESERVED → SOLD (반품: 검수 → AVAILABLE / UNSELLABLE) | 배송 시작 후 취소 불가 | 1차 |
 | 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD (미구매: 반납 확인 → AVAILABLE / UNSELLABLE) | IN_TRANSIT 중 취소 불가, 현장 판매 반품 불가 | 2차 |
-| 주문      | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
+| 주문      | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED → PURCHASE_CONFIRMED | IN_DELIVERY 이후 취소 불가, 배송완료 7일 이내만 반품 | 1차 |
 | 예약      | CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원      | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
 | 결제      | PENDING → SUCCESS → CANCELLED / REFUNDED | IN_DELIVERY 기준 취소/환불 구분 | 1차/2차 공통 (Mock) |

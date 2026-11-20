@@ -111,8 +111,11 @@ public enum AuthStatus {
 ### MemberGrade
 ```java
 public enum MemberGrade {
-    NORMAL("일반회원"),
-    VIP("VIP");
+    NORMAL("일반회원", 5),   // 2차 출장 시 옷 최대 5벌
+    VIP("VIP", 10);          // 최대 10벌 + 출장비 1회 무료
+
+    private final String description;
+    private final int maxStylingItems;
 }
 ```
 
@@ -143,6 +146,7 @@ public enum OrderStatus {
     IN_PREPARATION("상품준비중"),
     SHIPPED("배송중"),
     DELIVERED("배송완료"),
+    PURCHASE_CONFIRMED("구매확정"),  // 1차 전용 — 배송완료 7일 경과(batch), 누적 구매금액 반영 (V8)
     FAILED("결제실패"),
     CANCELLED("주문취소"),
     RETURN_REQUESTED("반품요청"),
@@ -154,7 +158,7 @@ public enum OrderStatus {
 ```java
 public enum OrderType {
     ONLINE("온라인"),   // 1차 — 결제 → 배송, 결제대기 만료 배치 대상
-    FIELD("현장");      // 2차 — 출장 현장 구매확정 → 결제, 배송 없음, PAID에서 끝
+    FIELD("현장");      // 2차 — 출장 끝날 때 현장 결제 1회 (옷 + 출장비), 배송 없음, PAID에서 끝
 }
 ```
 
@@ -277,6 +281,9 @@ public class Member extends BaseEntity {
 
     @Column(nullable = false)
     private Long totalPurchaseAmount = 0L;
+
+    @Column(nullable = false)
+    private boolean freeTravelUsed = false;   // VIP 출장비 1회 무료 사용 여부 (V8)
 }
 ```
 
@@ -729,6 +736,8 @@ public class Delivery extends BaseEntity {
 
     @Column(nullable = false, length = 255)
     private String address;
+
+    private LocalDateTime deliveredAt;     // 배송완료 시각 — 반품 가능 7일·구매확정 기준 (V8)
 }
 ```
 

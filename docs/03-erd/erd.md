@@ -80,7 +80,8 @@ Product 1 ─── N OrderItem
 | status | VARCHAR(20) | NOT NULL | 회원상태 (ACTIVE / WITHDRAWN) |
 | auth_status | VARCHAR(20) | NOT NULL | 인증상태 (UNVERIFIED / VERIFIED) |
 | grade | VARCHAR(20) | NOT NULL | 등급 (NORMAL / VIP) |
-| total_purchase_amount | BIGINT | DEFAULT 0 | 누적 구매금액 (VIP 등급 기준) |
+| total_purchase_amount | BIGINT | DEFAULT 0 | 누적 구매금액 (VIP 등급 기준) — 1차 구매확정 / 2차 현장 결제 시 반영, 출장비 제외 |
+| free_travel_used | TINYINT(1) | NOT NULL, DEFAULT 0 | VIP 출장비 1회 무료 사용 여부 (V8) |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 | created_by | BIGINT | | 생성자 ID |
@@ -251,7 +252,7 @@ Product 1 ─── N OrderItem
 | updated_by_type | VARCHAR(20) | | 수정자 유형 |
 
 **주문 상태값:**
-`PENDING` / `PAID` / `IN_PREPARATION` / `IN_DELIVERY` / `DELIVERED` / `FAILED` / `CANCELLED` / `RETURN_REQUESTED` / `RETURNED`
+`PENDING` / `PAID` / `IN_PREPARATION` / `IN_DELIVERY` / `DELIVERED` / `PURCHASE_CONFIRMED`(구매확정, 1차 — V8) / `FAILED` / `CANCELLED` / `RETURN_REQUESTED` / `RETURNED`
 
 > 2차 FIELD 주문은 `PENDING → PAID`(끝) / `FAILED`만 사용 — 배송 없음, 반품 불가(확장 포인트)
 > 결제대기 15분 만료 배치는 `order_type = 'ONLINE'`만 대상
@@ -360,6 +361,7 @@ Product 1 ─── N OrderItem
 | order_id | BIGINT | FK → order.id, UNIQUE, NOT NULL | 주문 ID (1:1) |
 | status | VARCHAR(30) | NOT NULL | 배송상태 Enum |
 | tracking_no | VARCHAR(50) | | 운송장 번호 (Mock) |
+| delivered_at | DATETIME | nullable | 배송완료 시각 — 반품 가능 7일·구매확정 기준 (V8) |
 | address | VARCHAR(255) | NOT NULL | 배송지 주소 |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
@@ -427,7 +429,7 @@ Product 1 ─── N OrderItem
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
 
-> Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 예약 조회 + 현장 구매확정 입력
+> Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 예약 조회 + 현장 결제 요청
 > 담당 매니저는 스타일리스트마다 고정 (예약할 때마다 정하지 않음). 지역별 운영은 매니저 소속 데이터로 표현 — 지역 테이블/소속 변경 이력은 확장 포인트
 
 ### stylist_schedule (스타일리스트 가능 일정)
@@ -454,6 +456,7 @@ Product 1 ─── N OrderItem
 | scheduled_at | DATETIME | NOT NULL | 출장 예정 일시 |
 | zip_code | VARCHAR(10) | NOT NULL | 출장지 우편번호 — 서비스 지역 판단 (서울 한정, V2 추가) |
 | address | VARCHAR(255) | | 출장 주소 |
+| travel_fee | BIGINT | NOT NULL, DEFAULT 0 | 출장비 — 예약 시점 금액 (기본 20,000, VIP 1회 무료면 0), 현장 결제 때 옷값과 합산 (V8) |
 | started_at | DATETIME | nullable | 출장 시작 시각 — IN_PROGRESS 전환 시 (V6, styling_session에서 이동) |
 | completed_at | DATETIME | nullable | 현장 완료 시각 — COMPLETED 전환 시, 반납 지연 알림 기준 (V6) |
 | created_at | DATETIME | NOT NULL | |

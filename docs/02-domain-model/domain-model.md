@@ -38,6 +38,8 @@
 **책임:** 고객 계정 및 인증/등급 관리
 - 회원가입, 로그인, 본인인증(Mock) 처리
 - 회원 상태(status), 인증 상태(authStatus), 등급(grade) 독립 관리
+- 누적 구매금액(`totalPurchaseAmount`) — 1차 구매확정 시 / 2차 현장 결제 PAID 시 반영 (출장비 제외), 바뀔 때마다 등급 재계산 (강등 없음)
+- VIP 출장비 1회 무료 사용 여부(`freeTravelUsed`) — 2차
 - fo-api를 통해 접근
 
 **주요 관계:**
@@ -142,8 +144,9 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - 주문 단위의 전체 흐름 관리
 - 하나의 주문번호로 전체 진행 상황 추적
 - **주문 유형** `orderType`: `ONLINE`(온라인, 1차) / `FIELD`(현장, 2차)
-  - 1차 ONLINE: PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED, IN_DELIVERY 이후 취소 불가
+  - 1차 ONLINE: PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED → (7일 경과 batch) PURCHASE_CONFIRMED(구매확정), IN_DELIVERY 이후 취소 불가, 배송완료 7일 이내만 반품
   - 2차 FIELD: PENDING → PAID 에서 끝 (배송 없음, 반품 불가 — 확장 포인트), 실패 시 FAILED
+    - 출장 끝날 때 현장 결제 1회 = 고른 옷 합계 + 출장비, 예약 1건당 PAID 최대 1건
   - 결제대기 15분 만료 배치는 ONLINE만 대상
 
 **주요 관계:**
@@ -222,6 +225,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 **책임:** 배송 상태 관리
 - 배송업체 Mock 기반 상태 변경 시뮬레이션
 - 반품 요청/회수 처리 — 배송 RETURNED는 회수 도착일 뿐, 재고/환불은 BO 반품 검수 때 처리 (1차)
+- 배송완료 시각(`deliveredAt`) — 반품 가능 7일·구매확정 기준
 
 **주요 관계:**
 - `Order` 와 1:1
@@ -236,7 +240,7 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - 고객이 예약 전 스타일리스트 프로필 조회 가능
 - 등록/수정은 bo-api(MANAGER)만 가능
 - **자체 계정 보유 (email + password)** — Admin과 별도 계정 체계
-- bo-api에 Stylist 계정으로 로그인 → 담당 예약 조회 + 현장 구매확정 입력 (PDA 역할)
+- bo-api에 Stylist 계정으로 로그인 → 담당 예약 조회 + 현장 결제 요청 (PDA 역할)
 - Admin(MANAGER) 로그인과 동일한 구조 재사용, 접근 가능 엔드포인트만 분리
 - **담당 매니저 고정** (`manager_id`, MANAGER 권한만) — 반납 지연 알림을 스타일리스트와 함께 받음. 소속 변경은 BO에서 수정
 - 반납 확인(검수)은 스타일리스트가 아니라 센터 직원(BO)이 처리
@@ -267,6 +271,9 @@ ID | 상품명   | 가격   | 판매시작일   | 판매종료일   | 현재여�
 - 확정 시점에 StylistSchedule 슬롯 BOOKED + 찜 목록 기반 재고 RESERVED 처리
 - IN_PROGRESS 이후 취소 불가
 - 관리자(MANAGER) 취소 시 → CONFIRMED → CANCELLED + 알림(Mock)
+- 들고 가는 옷: 찜 목록 중 등급별 최대 개수 선택 (일반 5벌 / VIP 10벌)
+- 출장비(`travelFee`) — 예약 시점 금액 저장 (기본 20,000원, VIP 1회 무료면 0), 현장 후불로 옷값과 합산 결제
+- 무료 예약 취소: 24시간 전 고객 취소 / 회사 사정 취소 → 무료 기회 복구, 24시간 이내 고객 취소 → 소진
 
 **주요 관계:**
 - `Member` 가 신청

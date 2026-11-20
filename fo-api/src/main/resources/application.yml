@@ -35,6 +35,11 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000
 
+# 2차 출장 정책 — 예약 시점 출장비를 reservation.travel_fee에 저장 (VIP 1회 무료면 0)
+stylink:
+  styling:
+    travel-fee: 20000
+
 logging:
   level:
     com.stylink: DEBUG

@@ -46,6 +46,10 @@ public class Reservation extends BaseEntity {
     @Column(name = "address", length = 255)
     private String address;
 
+    // 출장비 (V8) — 예약 시점 금액 저장 (일반 20,000 / VIP 1회 무료면 0), 현장 결제 때 옷값과 합산 / 누적 구매금액 제외
+    @Column(name = "travel_fee", nullable = false)
+    private Long travelFee;
+
     // 출장 시작 시각 — IN_PROGRESS 전환 시 기록 (V6, styling_session에서 이동)
     @Column(name = "started_at")
     private LocalDateTime startedAt;

@@ -192,9 +192,9 @@ cancelOrder():
 
 ### Step 6: DeliveryService + MockDeliveryGateway
 - `startShipping(orderId)` — Order IN_DELIVERY + `inventoryService.sell()` (RESERVED→SOLD)
-- `completeDelivery(deliveryId)` — Order DELIVERED
+- `completeDelivery(deliveryId)` — Order DELIVERED + `Delivery.deliveredAt` 기록 (V8, 반품 7일·구매확정 기준)
 - 반품 (1차 전용):
-  1. 반품 요청: 주문 DELIVERED → RETURN_REQUESTED, 배송 RETURN_REQUESTED
+  1. 반품 요청: 주문 DELIVERED → RETURN_REQUESTED, 배송 RETURN_REQUESTED — **배송완료 후 7일 이내만** (넘으면 거절)
   2. 택배 회수 도착 (Mock): 배송 RETURNED만 변경 — 주문/재고/환불은 그대로
   3. BO 반품 검수 (센터 직원):
      - 대상: 배송 RETURNED + 주문 RETURN_REQUESTED (검수 대기 상태 따로 없음)
@@ -203,7 +203,16 @@ cancelOrder():
      - 공통: 주문 RETURNED + OrderHistory + 환불(`refund()`) — 불량이어도 환불 (고객 과실 판단/반품 거절은 확장 포인트)
   - 반품 지연 알림 없음 (택배사 회수 — 2차 반납 지연 알림과 다름)
 
-검증: 회원가입 → 로그인 → 상품조회 → 주문 → 결제 → 배송시작(SOLD) → 완료 (1차 E2E)
+### Step 6-1: batch — 구매확정 + 누적 구매금액 (1차 전용)
+- 대상: 주문 DELIVERED + `orderType = ONLINE` + `delivery.deliveredAt` 7일 경과 (RETURN_REQUESTED는 자연히 제외)
+- 처리: Order PURCHASE_CONFIRMED + OrderHistory → `member.totalPurchaseAmount += 주문 상품 금액` → 100만원 이상이면 VIP
+  - 등급은 그 자리에서 재계산, 강등 없음 (구매확정 후엔 반품 불가라 차감할 일 없음)
+- **반품 요청 vs batch 동시 처리**: 주문 `@Version`(V4) → 늦은 쪽 낙관적 락 예외 (Step 5-1과 같은 패턴, 벌크 UPDATE 금지)
+- **누적액 동시 갱신** (batch vs 2차 현장 결제): `+금액` 원자적 UPDATE 또는 락으로 갱신 손실 방지 — 방식은 구현 시 결정 (사용자 담당)
+- 고객 안내: 회원 API 응답에 "반영 예정 금액"(구매확정 전 DELIVERED 주문 합계) → 화면에서 "7일 뒤 반영됩니다"
+- 확장 포인트: 고객 직접 구매확정, 연간 등급 갱신
+
+검증: 회원가입 → 로그인 → 상품조회 → 주문 → 결제 → 배송시작(SOLD) → 완료 → 7일 후 구매확정 + 누적 반영 (1차 E2E) / 8일째 반품 요청 거절
 
 ---
 
@@ -222,19 +231,25 @@ cancelOrder():
    - 현장 결제 실패에 `release()` 쓰지 말 것 (AVAILABLE이 되면 차에 있는 옷이 온라인에서 팔림)
 2. `ReservationService`:
    - 예약 생성 전: 출장지 우편번호 검증 (서울만 — 앞 두 자리 01~08, 아니면 예외)
-   - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + 찜 상품마다 AVAILABLE 재고 1벌 `reserve()` + `ReservationItem` 저장
+   - 예약 생성 전: 찜 목록 중 고른 옷 개수 ≤ `member.grade.maxStylingItems` (일반 5 / VIP 10), 넘으면 예외
+   - 예약 생성 = 즉시 CONFIRMED: StylistSchedule BOOKED + 고른 상품마다 AVAILABLE 재고 1벌 `reserve()` + `ReservationItem` 저장
+     - 출장비: VIP + `freeTravelUsed = false` → `travelFee = 0` + `freeTravelUsed = true` / 그 외 → `travelFee = 설정값(20,000)`
+     - 동시 무료 예약 2건 → `false → true`가 한 번만 성공하도록 (조건부 UPDATE 또는 락)
    - CONFIRMED → CANCELLED: `ReservationItem`으로 재고 찾아 `release()` (RESERVED→AVAILABLE)
+     - 무료 예약이었으면: 고객 취소 + 출장 24시간 전까지 → `freeTravelUsed = false` 복구 / 24시간 이내 → 소진 / MANAGER 취소 → 항상 복구
    - CONFIRMED → IN_PROGRESS: `ReservationItem`으로 재고 찾아 `transit()` + `startedAt` 기록
    - IN_PROGRESS → COMPLETED: `completedAt` 기록 / 재고는 이 시점에 안 바꿈 (판매 건은 결제 성공 때 이미 SOLD, 나머지는 IN_TRANSIT 유지)
 3. Stylist 계정 인증 (bo-api):
    - Stylist 로그인 엔드포인트 추가 (Admin 로그인 패턴 재사용)
-   - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 예약 조회 + 구매확정)
-4. 현장 판매 (bo-api, Stylist 계정으로 호출) — 옛 `StylingSessionService` 역할 (V6에서 `styling_session` 삭제)
+   - Security 설정: Stylist 접근 가능 엔드포인트 분리 (담당 예약 조회 + 현장 결제)
+4. 현장 결제 (bo-api, Stylist 계정으로 호출) — 옛 `StylingSessionService` 역할 (V6에서 `styling_session` 삭제)
+   - **출장 끝날 때 1회**: 고른 옷 전부 + 출장비를 FIELD 주문 1건으로 결제 (고객 결제 1번)
    - 현장 주문 생성 — 1차 `createOrder()`와 **별도 메서드** (재고를 새로 잡지 않음)
-     - 검증: 예약 IN_PROGRESS + 이 예약의 `ReservationItem`에 있는 옷 + 재고 IN_TRANSIT + `returnedAt IS NULL` + 이미 판매(PAID)된 옷 아님
-     - Order(`orderType = FIELD`, `reservationId`, PENDING) + OrderItem + OrderHistory
+     - 검증: 예약 IN_PROGRESS + 이 예약의 `ReservationItem`에 있는 옷 + 재고 IN_TRANSIT + `returnedAt IS NULL` + 이 예약에 PAID 현장 주문 없음
+     - Order(`orderType = FIELD`, `reservationId`, PENDING, 총액 = 옷 합계 + `reservation.travelFee`) + OrderItem + OrderHistory
+     - 산 옷 없음 → 출장비만 (OrderItem 없음) / 출장비 0원 + 산 옷 없음 → 주문 안 만듦
    - 결제 → Payment 프로세스 (1차 `pay()` 저장 방식 동일)
-     - 성공: Order PAID(끝) + 재고 IN_TRANSIT → SOLD
+     - 성공: Order PAID(끝) + 재고 IN_TRANSIT → SOLD + 누적 구매금액 반영(옷 금액만, 출장비 제외) + 등급 재계산
      - 실패: Payment/Order FAILED + fail_code 저장, **재고는 IN_TRANSIT 그대로** (`release()` 금지)
      - 다시 결제하려면 현장 주문 새로 생성 (주문 1건 = 결제 1건)
    - 미구매 → 주문 만들지 않음, 상태 변경 없음 (IN_TRANSIT 유지, 반납 확인 대기)
@@ -255,7 +270,7 @@ cancelOrder():
 7. 스타일리스트 등록/수정 (bo-api, MANAGER):
    - 담당 매니저 `managerId` 필수 — MANAGER 권한 Admin만 지정 가능 (검증)
    - 매니저 퇴사/팀 이동 시 수정 → 이후 알림은 새 매니저에게
-- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내 — 1차 반품 검수 재사용), 미구매 사유 통계, 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 매니저 소속 변경 이력
+- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내 — 1차 반품 검수 재사용), 미구매 사유 통계, 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 매니저 소속 변경 이력, 일반회원 직전 취소 수수료, 출장비 미수금 처리
 
 ---
 

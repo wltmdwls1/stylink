@@ -54,4 +54,8 @@ public class Member extends BaseEntity {
     // 누적 구매 금액 (VIP 등급 판단 기준)
     @Column(name = "total_purchase_amount", nullable = false, precision = 12, scale = 0)
     private BigDecimal totalPurchaseAmount;
+
+    // VIP 출장비 1회 무료 사용 여부 (V8) — 24시간 전 고객 취소 / 회사 사정 취소 시에만 false로 복구
+    @Column(name = "free_travel_used", nullable = false)
+    private boolean freeTravelUsed = false;
 }

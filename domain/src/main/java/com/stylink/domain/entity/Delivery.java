@@ -7,6 +7,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * 배송 (Mock 기반, 1차 온라인 전용)
  * RETURNED 시 → Order 상태 변경 + 재고 복구 + 환불 처리 연계
@@ -40,4 +42,8 @@ public class Delivery extends BaseEntity {
     // 운송장 번호 (Mock)
     @Column(name = "tracking_number", length = 100)
     private String trackingNumber;
+
+    // 배송완료 시각 (V8) — DELIVERED 전환 시 기록 / 반품 가능 7일·구매확정 batch 기준 (1차)
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
 }
