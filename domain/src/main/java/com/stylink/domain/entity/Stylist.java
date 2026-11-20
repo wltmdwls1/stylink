@@ -16,6 +16,10 @@ public class Stylist extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 담당 매니저 (admin.id, MANAGER 권한만) — 스타일리스트마다 고정, 반납 지연 알림 대상 (2차, V7)
+    @Column(name = "manager_id", nullable = false)
+    private Long managerId;
+
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 

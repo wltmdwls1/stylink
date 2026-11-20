@@ -132,9 +132,10 @@ void release(Long inventoryId, Long memberId, InventoryChangeReason reason)
 void sell(Long inventoryId)
   // InventoryLog(RESERVED→SOLD, ORDER_SHIPPED) 저장
 
-// SOLD → AVAILABLE (반품 완료)
-void restore(Long inventoryId)
-  // InventoryLog(SOLD→AVAILABLE, ORDER_RETURNED) 저장
+// 1차 반품 검수 (BO): SOLD → AVAILABLE(정상) / UNSELLABLE(불량)
+//   reason: RESTORED_BY_RETURN(반품 정상) / UNSELLABLE_BY_RETURN(반품 불량)
+//   "정상→AVAILABLE / 불량→UNSELLABLE" 부분은 2차 반납 확인과 공유 가능 (출발 상태·reason만 다름)
+//   메서드 이름/나누는 방식은 구현 시 결정 (사용자 담당)
 ```
 
 검증: 동시에 같은 재고에 reserve 2건 → 1건 성공, 1건 INVENTORY_NOT_AVAILABLE
@@ -192,7 +193,15 @@ cancelOrder():
 ### Step 6: DeliveryService + MockDeliveryGateway
 - `startShipping(orderId)` — Order IN_DELIVERY + `inventoryService.sell()` (RESERVED→SOLD)
 - `completeDelivery(deliveryId)` — Order DELIVERED
-- 반품: RETURN_REQUESTED→RETURNED + `inventoryService.restore()` (SOLD→AVAILABLE)
+- 반품 (1차 전용):
+  1. 반품 요청: 주문 DELIVERED → RETURN_REQUESTED, 배송 RETURN_REQUESTED
+  2. 택배 회수 도착 (Mock): 배송 RETURNED만 변경 — 주문/재고/환불은 그대로
+  3. BO 반품 검수 (센터 직원):
+     - 대상: 배송 RETURNED + 주문 RETURN_REQUESTED (검수 대기 상태 따로 없음)
+     - 입력: 정상 / 불량 — 2차 반납 확인 API와 같은 입력값으로 맞춤 (Enum 위치는 구현 시 결정)
+     - 정상 → 재고 SOLD→AVAILABLE (reason: RESTORED_BY_RETURN) / 불량 → SOLD→UNSELLABLE (reason: UNSELLABLE_BY_RETURN)
+     - 공통: 주문 RETURNED + OrderHistory + 환불(`refund()`) — 불량이어도 환불 (고객 과실 판단/반품 거절은 확장 포인트)
+  - 반품 지연 알림 없음 (택배사 회수 — 2차 반납 지연 알림과 다름)
 
 검증: 회원가입 → 로그인 → 상품조회 → 주문 → 결제 → 배송시작(SOLD) → 완료 (1차 E2E)
 
@@ -234,13 +243,19 @@ cancelOrder():
    - 현장 판매 반품 불가 — 확장 포인트
 5. 반납 확인 (bo-api, 센터 직원이 실물 검수 후 호출):
    - 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `ReservationItem.returnedAt IS NULL` (가는 중인 재고는 거부)
-   - 정상 → IN_TRANSIT→AVAILABLE (reason: RESTORED_BY_RETURN_CHECK)
-   - 불량 → IN_TRANSIT→UNSELLABLE (reason: UNSELLABLE_BY_RETURN_CHECK)
+   - 정상 → IN_TRANSIT→AVAILABLE (reason: RESTORED_BY_RETURN_CHECK 반납 정상)
+   - 불량 → IN_TRANSIT→UNSELLABLE (reason: UNSELLABLE_BY_RETURN_CHECK 반납 불량)
    - 공통: `ReservationItem.returnedAt` 기록
+   - 스타일리스트 계정으로는 호출 불가 — 옷을 가진 사람이 직접 반납 완료 처리하지 않음 (넘겨주는 사람 ≠ 확인하는 사람)
+   - 입력값(정상/불량)은 1차 반품 검수 API와 같게
 6. batch: 반납 지연 알림
-   - `reservation.completedAt` 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT + `returnedAt IS NULL`인 재고 → 관리자 알림(Mock)
+   - `reservation.completedAt` 후 일정 시간(예: 24시간) 지나도 IN_TRANSIT + `returnedAt IS NULL`인 재고 → **해당 스타일리스트 + 담당 매니저**(`stylist.managerId`) 알림(Mock)
    - 상태는 바꾸지 않음 (실물 확인은 사람이 해야 함)
-- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내), 미구매 사유 통계
+   - 같은 옷이 매일 다시 잡혀 알림이 반복되는 것(중복 알림) 처리는 구현 시 결정
+7. 스타일리스트 등록/수정 (bo-api, MANAGER):
+   - 담당 매니저 `managerId` 필수 — MANAGER 권한 Admin만 지정 가능 (검증)
+   - 매니저 퇴사/팀 이동 시 수정 → 이후 알림은 새 매니저에게
+- 확장 포인트 (범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리, 현장 판매 반품(예: 결제 후 7일 이내 — 1차 반품 검수 재사용), 미구매 사유 통계, 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 매니저 소속 변경 이력
 
 ---
 

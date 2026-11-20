@@ -20,9 +20,12 @@ public enum InventoryChangeReason {
     IN_TRANSIT_BY_RESERVATION("출장 시작으로 이동"),
     SOLD_BY_ORDER("온라인 주문으로 판매완료"),
     SOLD_BY_FIELD_SALE("현장 판매로 판매완료"),
-    RESTORED_BY_RETURN("반품으로 복구"),           // SOLD→AVAILABLE — 1차는 배송 시작 시 SOLD라 SOLD를 되돌리는 건 반품뿐
-    RESTORED_BY_RETURN_CHECK("출장 반납 확인으로 복구"),        // 2차 전용 — 검수 정상
-    UNSELLABLE_BY_RETURN_CHECK("출장 반납 검수 불량으로 판매불가"); // 2차 전용
+    // 반품/반납 검수 — 결과 상태는 InventoryLog previous/new_status에 있으므로 설명은 원인만
+    // 반품 = 고객이 산 걸 돌려줌(1차, SOLD→) / 반납 = 안 산 옷이 센터로 돌아옴(2차, IN_TRANSIT→)
+    RESTORED_BY_RETURN("반품 정상"),                // 1차 전용 — SOLD→AVAILABLE (BO 반품 검수 정상)
+    UNSELLABLE_BY_RETURN("반품 불량"),              // 1차 전용 — SOLD→UNSELLABLE (BO 반품 검수 불량)
+    RESTORED_BY_RETURN_CHECK("반납 정상"),          // 2차 전용 — IN_TRANSIT→AVAILABLE (BO 반납 확인 정상)
+    UNSELLABLE_BY_RETURN_CHECK("반납 불량");        // 2차 전용 — IN_TRANSIT→UNSELLABLE (BO 반납 확인 불량)
 
     private final String description;
 }

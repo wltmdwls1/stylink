@@ -54,7 +54,8 @@ O2O 출장 스타일링 서비스
 재고: AVAILABLE → RESERVED → IN_TRANSIT → SOLD
 취소: 출장 시작(IN_PROGRESS) 전만 가능 → RESERVED → AVAILABLE
 미구매 재고: 센터 복귀 후 BO 반납 확인(검수) → 정상 AVAILABLE / 불량 UNSELLABLE
-반납 지연: batch가 관리자 알림만 (자동 상태 변경 없음)
+반납 확인은 센터 직원(BO)만 — 스타일리스트가 직접 처리하지 않음
+반납 지연: batch가 해당 스타일리스트 + 담당 매니저(stylist.manager_id, 고정) 알림만 (자동 상태 변경 없음)
 확장 포인트: UNSELLABLE 이후 처리(세탁/수선/폐기), 분실 처리
 서비스 지역: 서울만 (센터 서울 1곳 가정, 출장지 우편번호 앞 두 자리 01~08로 판단)
   └ 1차 온라인은 택배라 전국 대상

@@ -293,9 +293,11 @@ append-only 구조라 BaseLogEntity를 적용했습니다.
 
 **Q. 반품 시 재고 복구는 어떻게 처리하나요?**
 
-RETURNED 시 OrderService 오케스트레이터가 InventoryService.restore()를 호출합니다.
-Inventory 상태를 SOLD → AVAILABLE로 변경하고 InventoryLog에 기록합니다.
-동시에 PaymentService.refund()로 환불 처리가 연계됩니다.
+택배 회수가 끝났다고 바로 재고를 되살리지 않고, 센터 직원이 BO에서 검수한 뒤 처리합니다 (1차).
+정상이면 SOLD → AVAILABLE, 불량이면 SOLD → UNSELLABLE로 바꾸고 InventoryLog에 사유(반품 정상/반품 불량)를 남깁니다.
+같은 시점에 주문 RETURNED와 PaymentService 환불이 함께 처리됩니다. 환불을 검수 뒤에 하는 이유는, 먼저 환불하면 불량일 때 되돌릴 수 없기 때문입니다.
+2차 출장 미구매 반납도 같은 방식(센터 직원 검수 → 정상/불량)이라 두 흐름의 기준을 맞췄습니다.
+회수 도착 후 검수 전 상태는 새 상태를 만들지 않고 "배송 RETURNED + 주문 RETURN_REQUESTED"로 판단합니다.
 
 ---
 

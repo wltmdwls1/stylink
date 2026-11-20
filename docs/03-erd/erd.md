@@ -417,6 +417,7 @@ Product 1 ─── N OrderItem
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 스타일리스트 ID |
+| manager_id | BIGINT | FK → admin.id, NOT NULL | 담당 매니저 (MANAGER 권한만) — 반납 지연 알림 대상 (V7) |
 | name | VARCHAR(50) | NOT NULL | 이름 |
 | email | VARCHAR(100) | UNIQUE, NOT NULL | 이메일 (bo-api 로그인 ID) |
 | password | VARCHAR(255) | NOT NULL | BCrypt 암호화 비밀번호 (Admin과 별도 계정 체계) |
@@ -427,6 +428,7 @@ Product 1 ─── N OrderItem
 | updated_at | DATETIME | NOT NULL | |
 
 > Stylist는 Admin과 별도 계정 체계 — bo-api에 Stylist 계정으로 로그인하여 담당 예약 조회 + 현장 구매확정 입력
+> 담당 매니저는 스타일리스트마다 고정 (예약할 때마다 정하지 않음). 지역별 운영은 매니저 소속 데이터로 표현 — 지역 테이블/소속 변경 이력은 확장 포인트
 
 ### stylist_schedule (스타일리스트 가능 일정)
 

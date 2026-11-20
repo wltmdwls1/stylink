@@ -46,17 +46,22 @@
 
 ### 1차 (온라인 주문)
 ```
-            주문발생                 배송시작            반품완료
-AVAILABLE ──────────► RESERVED ──────────────► SOLD ──────────► AVAILABLE
-    ▲                     │
-    │             취소 / 만료 / 결제실패
-    └─────────────────────┘
+            주문발생                 배송시작
+AVAILABLE ──────────► RESERVED ──────────────► SOLD
+    ▲                     │                     │
+    │             취소 / 만료 / 결제실패      반품 (택배 회수 후 센터 도착)
+    └─────────────────────┘                     │
+                                          BO 반품 검수
+                                         ┌─────┴─────┐
+                                       정상          불량
+                                         ▼            ▼
+                                    AVAILABLE    UNSELLABLE
 ```
 
 **SOLD 시점 = 배송 시작(IN_DELIVERY)** — 1차
 - 주문 취소 경계 / 결제 CANCEL·REFUND 경계 / 재고 SOLD 경계가 모두 배송 시작으로 일치
   - 배송 시작 전: 주문 취소 가능 → 결제 CANCEL → 재고 RESERVED → AVAILABLE (`release()`)
-  - 배송 시작 후: 반품만 가능 → 결제 REFUND → 재고 SOLD → AVAILABLE (`restore()`)
+  - 배송 시작 후: 반품만 가능 → BO 반품 검수 → 재고 SOLD → AVAILABLE(정상) / UNSELLABLE(불량) + 결제 REFUND
 - 결제 전/후 RESERVED 구분은 재고 상태가 아니라 주문 상태로 판단 (PENDING이면 결제 전, 그 외는 결제 완료)
 
 ### 2차 (O2O 출장 서비스)
@@ -79,7 +84,7 @@ AVAILABLE ──────────► RESERVED ─────────
 | `RESERVED`   | 예약됨 | 주문 또는 예약으로 선점된 재고 (1차/2차 공통) |
 | `IN_TRANSIT` | 이동중 | 스타일리스트 출장을 위해 이동 중인 재고 **(2차 전용)** |
 | `SOLD`       | 판매완료 | 온라인 주문 또는 현장 판매로 최종 판매 완료 |
-| `UNSELLABLE` | 판매불가 | 출장 반납 검수에서 불량 판정된 재고 **(2차 전용)** |
+| `UNSELLABLE` | 판매불가 | 검수에서 불량 판정된 재고 (1차 반품 / 2차 반납 공통) |
 
 **정책**
 - 결제대기 만료 (배치) — **1차 전용**
@@ -92,7 +97,10 @@ AVAILABLE ──────────► RESERVED ─────────
   - 센터 도착 후 BO에서 직원이 직접 보고 **반납 확인(검수)** → 정상: AVAILABLE / 불량: UNSELLABLE
   - 반납 확인 대상: 예약 COMPLETED + 재고 IN_TRANSIT + `reservation_item.returned_at` 비어 있음 → 확인 시 `returned_at` 기록
   - 반납 확인 전까지 판매가능 재고에 포함되지 않음 → 차에 있는 옷이 1차 온라인에서 팔리는 문제 방지
-  - 배치: COMPLETED 후 일정 시간(예: 24시간)이 지나도 IN_TRANSIT인 재고 → 관리자 알림(Mock). 상태 자동 변경 안 함 (실물 확인 필요)
+  - 반납 확인은 **센터 직원(BO)** 이 함 — 옷을 가진 스타일리스트가 직접 반납 완료 처리하지 않음 (넘겨주는 사람 ≠ 확인하는 사람, 미반납인데 AVAILABLE이 되어 실물 없는 재고가 팔리는 문제 방지)
+  - 배치: COMPLETED 후 일정 시간(예: 24시간)이 지나도 IN_TRANSIT인 재고 → **해당 스타일리스트 + 담당 매니저**(`stylist.manager_id`) 알림(Mock). 상태 자동 변경 안 함 (실물 확인 필요)
+    - 담당 매니저는 스타일리스트마다 고정 (예약할 때마다 정하지 않음, 소속 변경은 BO에서 수정)
+    - 확장 포인트: 단계별 알림(24시간 스타일리스트 → 48시간 매니저), 지역 관리, 중복 알림 방지 방식
 - **확장 포인트** (현재 범위 밖): UNSELLABLE 이후 처리(세탁/수선/폐기), 미반납 재고 분실 처리 — 2차 전용
 - 동시 주문 발생 시 → 한 건만 RESERVED 성공, 나머지는 실패 처리 (낙관적 락)
 - **2차 현장 판매** — 2차 전용
@@ -100,7 +108,12 @@ AVAILABLE ──────────► RESERVED ─────────
   - 현장 주문 생성 시 재고를 새로 잡지 않음 (이미 이 예약에 묶여 차에 실린 옷) — 상태 IN_TRANSIT 그대로
   - 현장 결제 성공 → IN_TRANSIT → SOLD (reason: `SOLD_BY_FIELD_SALE`)
   - 현장 결제 실패 → **재고 그대로 IN_TRANSIT** (`release()` 금지 — AVAILABLE이 되면 차에 있는 옷이 온라인에서 팔림) → 미구매와 같이 센터 반납 검수
-- 반품 완료 시 → SOLD → AVAILABLE 복구 — **1차 전용** (2차 현장 판매는 반품 불가, 확장 포인트)
+- **1차 반품 검수** — 1차 전용 (2차 현장 판매는 반품 불가, 확장 포인트 — 확장 시 같은 검수 방식 재사용)
+  - 택배 회수 도착(배송 RETURNED)만으로는 재고를 바꾸지 않음 → 센터 직원이 BO에서 검수
+  - 정상 → SOLD → AVAILABLE (reason: `RESTORED_BY_RETURN` 반품 정상)
+  - 불량 → SOLD → UNSELLABLE (reason: `UNSELLABLE_BY_RETURN` 반품 불량)
+  - 검수 대기 판단: 별도 상태 없이 배송 RETURNED + 주문 RETURN_REQUESTED
+  - 반품 지연 알림 없음 — 택배사가 회수하므로 회사 직원이 옷을 들고 있는 2차와 다름
 
 ---
 
@@ -131,7 +144,7 @@ PENDING ──────────► PAID ───────────
 | `FAILED`           | 결제실패 | 결제 실패 |
 | `CANCELLED`        | 주문취소 | 주문 취소 (IN_DELIVERY 이전만 가능) |
 | `RETURN_REQUESTED` | 반품요청 | 배송 완료 후 반품 요청 |
-| `RETURNED`         | 반품완료 | 반품 완료 → 재고 AVAILABLE 복구 + 환불 처리 연계 |
+| `RETURNED`         | 반품완료 | BO 반품 검수 완료 → 재고 AVAILABLE(정상) / UNSELLABLE(불량) + 환불 처리 연계 |
 
 **정책**
 - PENDING → 결제 실패 시 주문 FAILED 저장 + 재고 RESERVED 해제(release → AVAILABLE) — 롤백이 아니라 정상 커밋 (결제 정책 참고)
@@ -153,7 +166,9 @@ PENDING ──────────► PAID ───────────
 - 아래 취소/배송/반품 규칙은 **1차(ONLINE) 기준**
 - PAID, IN_PREPARATION 상태에서만 취소 가능
 - **IN_DELIVERY 이후 취소 불가** → DELIVERED 후 반품 요청만 가능
-- 반품 완료 시 → 재고 AVAILABLE 복구 + 환불(REFUND) 처리
+- **반품 흐름**: 반품요청(RETURN_REQUESTED) → 택배 회수 도착(배송 RETURNED, 주문은 그대로) → BO 반품 검수 → 주문 RETURNED + 재고 AVAILABLE(정상) / UNSELLABLE(불량) + 환불(REFUND)
+  - 환불은 **검수 후** (검수 전 환불하면 불량일 때 되돌릴 수 없음)
+  - 불량이어도 환불 진행 — 고객 과실 판단/반품 거절은 확장 포인트
 
 ---
 
@@ -316,11 +331,12 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 | `IN_DELIVERY`       | 배송중 | 배송 시작 |
 | `DELIVERED`         | 배송완료 | 배송 완료 |
 | `RETURN_REQUESTED`  | 반품요청 | 반품 요청 |
-| `RETURNED`          | 반품완료 | 반품 완료 → Order RETURNED + 재고 AVAILABLE 복구 + 환불 처리 연계 |
+| `RETURNED`          | 반품완료 | 택배 회수 완료 (센터 도착) — 주문/재고/환불은 BO 반품 검수 때 처리 |
 
 **정책 (Mock 기준)**
 - 배송 상태는 Mock으로 순차 변경 시뮬레이션
-- RETURNED 시 → Order 상태 변경 + 재고 복구 + 환불 처리 연계
+- 배송 RETURNED = 회수 도착일 뿐 → 주문 RETURN_REQUESTED 유지, 재고/환불 변경 없음
+- BO 반품 검수 시 → 주문 RETURNED + 재고 AVAILABLE(정상) / UNSELLABLE(불량) + 환불
 
 ---
 
@@ -328,8 +344,8 @@ READY ──배송시작──► IN_DELIVERY ──완료──► DELIVERED
 
 | 도메인     | 핵심 상태 흐름 | 취소 제한 | 오픈 단계 |
 |---------|-------------|----------|----------|
-| 재고 (1차) | AVAILABLE → RESERVED → SOLD | 반품 시 AVAILABLE 복구 | 1차 |
-| 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD (미구매: 반납 확인 → AVAILABLE / UNSELLABLE) | IN_TRANSIT 중 취소 불가, 반품 시 AVAILABLE 복구 | 2차 |
+| 재고 (1차) | AVAILABLE → RESERVED → SOLD (반품: 검수 → AVAILABLE / UNSELLABLE) | 배송 시작 후 취소 불가 | 1차 |
+| 재고 (2차) | AVAILABLE → RESERVED → IN_TRANSIT → SOLD (미구매: 반납 확인 → AVAILABLE / UNSELLABLE) | IN_TRANSIT 중 취소 불가, 현장 판매 반품 불가 | 2차 |
 | 주문      | PENDING → PAID → IN_PREPARATION → IN_DELIVERY → DELIVERED | IN_DELIVERY 이후 취소 불가 | 1차 |
 | 예약      | CONFIRMED → IN_PROGRESS → COMPLETED | IN_PROGRESS 이후 취소 불가 | 2차 |
 | 회원      | status / authStatus / grade 독립 관리 | - | 1차/2차 공통 |
